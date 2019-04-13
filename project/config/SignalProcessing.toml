@@ -1,0 +1,13 @@
+# FFT Spec
+dft_win     = 256
+dft_step    = 128
+ceps_filter = 32
+
+# VAT
+vat_moving     = 15
+vat_percentile = 0.85
+vat_min_len    = 50
+
+# ALIGN AND CLUSTERING
+alignment_workers     = 8 
+clustering_percentile = 0.1

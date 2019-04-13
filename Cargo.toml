@@ -1,0 +1,20 @@
+[package]
+name = "super_fast_spectrogram"
+version = "0.1.0"
+authors = ["Daniel Kohlsdorf <daniel.kohlsdorf@xing.com>"]
+edition = "2018"
+
+[dependencies]
+# Audio and Signal
+hound    = "*"
+rustfft  = "3.0.0"
+rustdct  = "*" 
+statrs   = "*"
+# Parallel
+rayon    = "*"
+# Plotting
+image    = "0.13.0"
+# Config and IO
+serde    = "*"
+serde_derive = "*"
+toml     = "*"
