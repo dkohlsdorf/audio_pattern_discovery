@@ -1,2 +1,3 @@
-# audio_pattern_discovery
+# Audio Pattern Discovery
+
 Pattern Discovery In Audio Collections in Rust
