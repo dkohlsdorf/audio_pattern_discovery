@@ -15,6 +15,6 @@ rayon    = "*"
 # Plotting
 image    = "0.13.0"
 # Config and IO
-serde    = "*"
+serde        = "*"
 serde_derive = "*"
-toml     = "*"
+toml         = "*"

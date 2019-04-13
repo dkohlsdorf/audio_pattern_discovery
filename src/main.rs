@@ -11,7 +11,7 @@ use std::time::Instant;
 // TODO: Pretty up reports
 // TODO: Pretty up output
 // TODO: Move main -> discovery
-// TODO: UI with html and javascript
+// TODO: UI with html and javascript >> poll piped log file from server
 
 pub mod discovery;
 pub mod aligned_model_merging;
