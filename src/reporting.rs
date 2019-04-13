@@ -19,17 +19,29 @@ pub struct Templates {
     out_audio: String,
     document: String,
     dendogram: String,
-    figure: String
+    figure: String,
 }
 
 impl Templates {
+    /// load from config
+    pub fn from_toml(file: String) -> Templates {
+        let mut template_conf = String::new();
+        let _ = File::open(file)
+            .expect("Template file not found")
+            .read_to_string(&mut template_conf);
+        let templates: Templates = toml::from_str(&template_conf).unwrap();
+        templates
+    }
+
     /// Generate a latex figure
     fn figure(&self, name: &String, caption: &String) -> Result<String> {
         let mut file = File::open(&self.figure)?;
         let mut template = String::new();
         file.read_to_string(&mut template)?;
         let img_ref = self.image_ref(name, false);
-        let filled = template.replace("<caption>", caption).replace("<img_ref>", &img_ref);
+        let filled = template
+            .replace("<caption>", caption)
+            .replace("<img_ref>", &img_ref);
         Ok(filled)
     }
 
@@ -49,7 +61,11 @@ impl Templates {
     }
 
     /// Generate tikz of markov chain
-    pub fn gen_markov(&self, filename_without_extension: String, markov_model: HiddenMarkovModel) -> Result<String> {
+    pub fn gen_markov(
+        &self,
+        filename_without_extension: String,
+        markov_model: HiddenMarkovModel,
+    ) -> Result<String> {
         let mut s = "digraph {".to_string();
         for i in 0..markov_model.n_states {
             if markov_model.start[i] > 0.0 {
@@ -139,9 +155,7 @@ impl Templates {
                 self.img_w, self.img_h, path
             )
         } else {
-            format!(
-                "\\includegraphics{{{}}}\n", path
-            )
+            format!("\\includegraphics{{{}}}\n", path)
         }
     }
 

@@ -8,10 +8,12 @@ use std::time::Instant;
 // TODO: define model / align against model stop merging
 // TODO: only merge in each cluster
 // TODO: implement merge and decode
-// TODO: config
-// TODO: compile better report putting dot images into pdf
-// TODO: structure output
+// TODO: Pretty up reports
+// TODO: Pretty up output
+// TODO: Move main -> discovery
+// TODO: UI with html and javascript
 
+pub mod discovery;
 pub mod aligned_model_merging;
 pub mod alignments;
 pub mod audio;
@@ -20,20 +22,12 @@ pub mod numerics;
 pub mod reporting;
 pub mod spectrogram;
 
-use std::fs::File;
-use std::io::prelude::*;
-
 fn main() {
-    let mut template_conf = String::new();
-    let _ = File::open("project/config/Templates.toml")
-        .expect("Template file not found")
-        .read_to_string(&mut template_conf);
-    let templates: reporting::Templates = toml::from_str(&template_conf).unwrap();
-    println!("{:?}", templates);
-
+    let templates = reporting::Templates::from_toml("project/config/Templates.toml".to_string());
+    let discover  = discovery::Discovery::from_toml("project/config/Discovery.toml".to_string());
     let wav = audio::AudioData::from_file(String::from("test.wav"), 0);
-    let spec = spectrogram::NDSequence::new(256, 128, 32, &wav);
-    let interesting = spec.interesting_ranges(15, 0.85, 50);
+    let spec = spectrogram::NDSequence::new(discover.dft_win, discover.dft_step, discover.ceps_filter, &wav);
+    let interesting = spec.interesting_ranges(discover.vat_moving  , discover.vat_percentile, discover.vat_min_len);
     let mut signals = vec![];
     for (_, slice) in interesting.iter().enumerate() {
         signals.push(slice.extract());
@@ -65,12 +59,12 @@ fn main() {
     let n = signals.len();
     let mut workers = alignments::AlignmentWorkers::new(signals);
     let now = Instant::now();
-    workers.align_all(8);
+    workers.align_all(discover.alignment_workers);
     println!("Align 8 threads took {}", now.elapsed().as_secs());
 
     let result = workers.result.lock().unwrap();
     let distances: Vec<f32> = result.iter().map(|node| node.score()).collect();
-    let (operations, clusters) = clustering::AgglomerativeClustering::clustering(distances, n, 0.1);
+    let (operations, clusters) = clustering::AgglomerativeClustering::clustering(distances, n, discover.clustering_percentile);
 
     let grouped = clustering::AgglomerativeClustering::cluster_sets(
         &operations,
