@@ -8,6 +8,9 @@ use std::time::Instant;
 // TODO: define model / align against model stop merging
 // TODO: only merge in each cluster
 // TODO: implement merge and decode
+// TODO: config
+// TODO: compile better report putting dot images into pdf
+// TODO: structure output
 
 pub mod aligned_model_merging;
 pub mod alignments;
@@ -32,7 +35,7 @@ fn main() {
     let spec = spectrogram::NDSequence::new(256, 128, 32, &wav);
     let interesting = spec.interesting_ranges(15, 0.85, 50);
     let mut signals = vec![];
-    for (i, slice) in interesting.iter().enumerate() {
+    for (_, slice) in interesting.iter().enumerate() {
         signals.push(slice.extract());
     }
 
@@ -74,15 +77,17 @@ fn main() {
         &clusters,
         interesting.len(),
     );
-    
-    audio::AudioData::write_slices(&grouped, &interesting, &vec![wav], 128);
+
+    templates.write_slices_audio(&grouped, &interesting, &vec![wav], 128, 10000);
     let (model, _) = aligned_model_merging::HiddenMarkovModel::from_slices(&interesting);
-    let _ = templates.gen_markov("markov.dot".to_string(), model);
-    if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
-        if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
-            let mut latex_parts = ceps_tex;
-            latex_parts.extend(spec_tex);
-            let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
+    if let Ok(image) = templates.gen_markov("markov".to_string(), model) {
+        if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
+            if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
+                let mut latex_parts = ceps_tex;
+                latex_parts.extend(spec_tex);
+                latex_parts.push(image);
+                let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
+            }
         }
     }
 }

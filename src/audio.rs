@@ -1,5 +1,4 @@
 use hound::*;
-use crate::spectrogram::*;
 use std::iter::FromIterator;
 
 /**
@@ -12,20 +11,6 @@ pub struct AudioData {
 }
 
 impl AudioData {
-
-    pub fn write_slices(clustering: &[Vec<usize>], slices: &[Slice], audio: &[AudioData], win_step: usize) {
-        for (i, cluster) in clustering.iter().enumerate() {
-            let filename = format!("output/cluster_{}.wav", i);
-            let spec  = audio[slices[cluster[0]].sequence.audio_id].spec; 
-            let mut output = AudioData {id: 0, spec, data: vec![]};
-            for slice_id in cluster {
-                let slice = &slices[*slice_id];
-                let raw   = &audio[slice.sequence.audio_id];
-                output.append(10000, &mut raw.slice(slice.start * win_step, slice.stop * win_step));        
-            }
-            output.write(filename);
-        }
-    }
 
     /**
      * Read audio data. For multiple channels, we only take the first.

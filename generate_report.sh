@@ -1,9 +1,16 @@
 #!/bin/bash
 
+# make project
+rm -rf output
+mkdir output
+mkdir output/img
+mkdir output/docs
+mkdir output/audio
+
 # Run tool
 cargo run
 # Generate reports
 cd output
-dot -Tpng -o markov.png markov.dot 
-pdflatex results.tex 
+dot -Tpng -o img/markov.png docs/markov.dot 
+pdflatex -output-directory docs/ docs/results.tex 
 cd ..
