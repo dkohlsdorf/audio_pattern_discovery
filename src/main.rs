@@ -5,9 +5,11 @@ extern crate rayon;
 
 use std::time::Instant;
 
-// Normalise HMM
+// Normalise HMM and decode
+
 // TODO: Pretty up reports
 // TODO: Pretty up output
+
 // TODO: Move main -> discovery
 // TODO: UI with html and javascript >> poll piped log file from server
 // TODO: Project management ... save project folders ... move them to a specific location
@@ -20,6 +22,7 @@ pub mod discovery;
 pub mod numerics;
 pub mod reporting;
 pub mod spectrogram;
+pub mod hidden_markov_model;
 
 fn main() {
     let templates = reporting::Templates::from_toml("project/config/Templates.toml".to_string());
@@ -71,7 +74,7 @@ fn main() {
     println!("Align 8 threads took {}", now.elapsed().as_secs());
 
     let result = workers.result.lock().unwrap();
-    let distances: Vec<f32> = result.iter().map(|node| node.score()).collect();
+    let distances: Vec<f32> = result.iter().map(|alignment| alignment.score()).collect();
     let (operations, clusters) = clustering::AgglomerativeClustering::clustering(
         distances,
         n,
@@ -85,6 +88,8 @@ fn main() {
     );
     templates.write_slices_audio(&grouped, &interesting, &vec![wav], 128, 10000);
 
+    let mut sample_distances: Vec<f32> = result.iter().flat_map(|alignment| alignment.path()).map(|node| node.score).collect();
+    let merge_threshold = numerics::percentile(&mut sample_distances, discover.merging_percentile);
     let mut hmm_parts = vec![];
     for (c, cluster) in grouped.iter().enumerate() {
         println!("HMM model merging from: {}", c);
@@ -105,7 +110,7 @@ fn main() {
         merger.merge_all(
             &paths,
             &instances,
-            discover.merging_percentile,
+            merge_threshold,
             discover.merging_moving,
         );
         if let Ok(img) = templates.gen_markov(format!("markov_chain_{}", c), &merger.shrink()) {

@@ -3,19 +3,7 @@ use crate::numerics::*;
 use crate::spectrogram::*;
 
 use std::collections::{HashMap, HashSet};
-
-/**
- * Hidden Markov Model
- */
-#[derive(Clone)]
-pub struct HiddenMarkovModel {
-    pub n_states: usize,
-    pub dim: usize,
-    pub trans: Vec<f32>,
-    pub start: Vec<f32>,
-    pub stop: Vec<f32>,
-    pub states: Vec<f32>,
-}
+use crate::hidden_markov_model::*;
 
 /**
  * Model merging: Build HMM by merging states
@@ -27,9 +15,13 @@ pub struct ModelMerging {
 }
 
 impl ModelMerging {
+    /**
+     * Shrink hidden markov model to smaller compressed version     
+     */
     pub fn shrink(&self) -> HiddenMarkovModel {
         let mut used_states = HashMap::new();
         let mut n_states = 0;
+        // map each state to a state in the clustered version
         for i in 0..self.merge_parent.len() {
             let state = self.find_parent(i);
             if !used_states.contains_key(&state) {
@@ -41,10 +33,12 @@ impl ModelMerging {
             "Original model: {} Compressed model: {}",
             self.hmm.n_states, n_states
         );
+        // initialize all transitions
         let mut start = vec![0.0; n_states];
         let mut stop = vec![0.0; n_states];
         let mut trans = vec![0.0; n_states * n_states];
         let mut states = vec![0.0; n_states * self.hmm.dim];
+        // copy the states
         for i in 0..self.hmm.n_states {
             let i = self.find_parent(i);
             let state_i = used_states[&i];
@@ -70,14 +64,19 @@ impl ModelMerging {
         }
     }
 
+    /**
+     * Convert paths to merge operations. 
+     * A merge happens only for matches within a certain distance.
+     * All distances within a sequence are smoothed using a moving average of size k.
+     */
     pub fn merge_all(
         &mut self,
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
-        perc: f32,
+        th: f32,
         k: usize,
-    ) {
-        let operations = ModelMerging::merges_from_alignments(paths, slices, perc, k);
+    ) { 
+        let operations = ModelMerging::merges_from_alignments(paths, slices, th, k);
         let mut closed = HashSet::new();
         for op in operations {
             let i = self.state_map[&(op.slice_i, op.i)];
@@ -96,19 +95,26 @@ impl ModelMerging {
         }
     }
 
-    pub fn merge(&mut self, state_i: usize, state_j: usize) {
+    /** 
+     * Merge two states. 
+     */
+    fn merge(&mut self, state_i: usize, state_j: usize) {
         if state_i <= state_j {
+            // merge j into i
             if state_i != state_j {
+                // move all outgoing connections from j to i
                 for k in 0..self.hmm.n_states {
                     let to = k;
                     self.hmm.trans[state_i * self.hmm.n_states + to] +=
                         self.hmm.trans[state_j * self.hmm.n_states + to];
                 }
+                // move all incomming connections from j to i
                 for k in 0..self.hmm.n_states {
                     let from = k;
                     self.hmm.trans[from * self.hmm.n_states + state_i] +=
                         self.hmm.trans[from * self.hmm.n_states + state_j];
                 }
+                // fix self transition, start and stop
                 self.hmm.trans[state_i * self.hmm.n_states + state_i] += 1.0;
                 self.hmm.start[state_i] += self.hmm.start[state_j];
                 self.hmm.stop[state_i] += self.hmm.stop[state_j];
@@ -117,6 +123,7 @@ impl ModelMerging {
                         self.hmm.states[state_j * self.hmm.dim + d];
                     self.hmm.states[state_i * self.hmm.dim + d] /= 2.0;
                 }
+                // change parent in union find                
                 self.merge_parent[state_j] = state_i;
             }
         } else {
@@ -124,7 +131,10 @@ impl ModelMerging {
         }
     }
 
-    pub fn find_parent(&self, i: usize) -> usize {
+    /**
+     * Find which state this one is merged into using union find
+     */
+    fn find_parent(&self, i: usize) -> usize {
         let mut p = i;
         while p != self.merge_parent[p] {
             p = self.merge_parent[p];
@@ -132,6 +142,9 @@ impl ModelMerging {
         p
     }
 
+    /**
+     * Create a simple chain of states one for each frame.
+     */
     pub fn from_slices(slices: &[Slice]) -> ModelMerging {
         let dim = slices[0].sequence.n_bins;
         let mut states: Vec<f32> = vec![];
@@ -183,29 +196,35 @@ impl ModelMerging {
         }
     }
 
-    pub fn merges_from_alignments(
+    /**
+     * Get all merges from a set of alignments
+     */
+    fn merges_from_alignments(
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
-        perc: f32,
+        th: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
         paths
             .iter()
-            .flat_map(|(i, j, p)| ModelMerging::merges_from_alignment(*i, *j, slices, p, perc, k))
+            .flat_map(|(i, j, p)| ModelMerging::merges_from_alignment(*i, *j, slices, p, th, k))
             .collect()
     }
 
-    pub fn merges_from_alignment(
+    /**
+     * Get all merges from one alignment
+     */
+    fn merges_from_alignment(
         x: usize,
         y: usize,
         slices: &[Slice],
         path: &[AlignmentNode],
-        perc: f32,
+        th: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
         let distances: Vec<f32> = path.iter().map(|node| node.score).collect();
-        let th = percentile(&mut distances.clone(), perc);
         println!("Merging along alignment with threshold: {}", th);
+        // smooth all distances
         let mut moving_avg = vec![];
         for i in 0..distances.len() {
             let mut avg = 0.0;
@@ -214,17 +233,20 @@ impl ModelMerging {
             }
             moving_avg.push(avg);
         }
+        
         let slice_i = &slices[x].extract();
         let slice_j = &slices[y].extract();
         let mut operations = vec![];
         for (t, node) in path.iter().enumerate() {
             let (i, j) = node.cur();
             if i < slice_i.len() && j < slice_j.len() {
+                // use smoothed distances along alignment path
                 let distance = if t < k {
                     distances[t]
                 } else {
                     moving_avg[t - k]
                 };
+                // check for merge possibility in the sequence
                 let dist2prev_i = if i > 0 {
                     euclidean(slice_i.vec(i), slice_i.vec(i - 1))
                 } else {
@@ -234,7 +256,7 @@ impl ModelMerging {
                     euclidean(slice_j.vec(j), slice_j.vec(j - 1))
                 } else {
                     std::f32::INFINITY
-                };
+                };            
                 if dist2prev_i < th {
                     operations.push(MergeOperation {
                         slice_i: x,
@@ -253,6 +275,7 @@ impl ModelMerging {
                         dist: dist2prev_j,
                     });
                 }
+                // we might merge on each match
                 match node.label {
                     AlignmentLabel::Match if distance < th => operations.push(MergeOperation {
                         slice_i: x,

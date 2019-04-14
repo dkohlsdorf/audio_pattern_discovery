@@ -1,6 +1,6 @@
 extern crate toml;
 
-use crate::aligned_model_merging::*;
+use crate::hidden_markov_model::*;
 use crate::audio::*;
 use crate::clustering::*;
 use crate::spectrogram::*;
@@ -158,7 +158,7 @@ impl Templates {
                 self.img_w, self.img_h, path
             )
         } else {
-            format!("\\includegraphics{{{}}}\n", path)
+            format!("\\includegraphics[width=0.3\\textwidth]{{{}}}\n", path)
         }
     }
 
