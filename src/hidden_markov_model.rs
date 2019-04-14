@@ -69,7 +69,7 @@ impl HiddenMarkovModel {
                 max = vite[(len - 1) * n_states + i];
             }
         }
-        max / (n_states + len) as f32
+        max / (n_states * len) as f32
     }
 
 }

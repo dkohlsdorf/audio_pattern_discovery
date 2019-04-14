@@ -150,7 +150,7 @@ pub fn diff(n: usize, m: usize) -> usize {
 pub fn ll(x: &[f32], mu: &[f32]) -> f32 {
     let mut ll = 0.0;
     for i in 0..x.len() {
-        let normal = Normal::new(mu[i] as f64, 1.0).unwrap();
+        let normal = Normal::new(mu[i] as f64, 0.25).unwrap();
         ll += normal.ln_pdf(x[i] as f64);
     }
     ll as f32
