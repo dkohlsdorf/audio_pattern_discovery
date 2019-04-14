@@ -12,6 +12,16 @@ cargo run > output/log.txt
 
 # Generate reports
 cd output
-dot -Tpng -o img/markov.png docs/markov.dot 
+for i in docs/*.dot
+do
+    if test -f "$i" 
+    then
+        echo "Creating Markov Chain: $i"
+        filename=$(basename -- "$i")
+        extension="${filename##*.}"
+        filename="${filename%.*}"
+        dot -Tpng -o img/$filename.png docs/$filename.dot 
+    fi
+done
 pdflatex -output-directory docs/ docs/results.tex 
 cd ..

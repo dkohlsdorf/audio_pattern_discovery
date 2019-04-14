@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 /**
  * Hidden Markov Model
  */
+#[derive(Clone)]
 pub struct HiddenMarkovModel {
     pub n_states: usize,
     pub dim: usize,
@@ -20,46 +21,57 @@ pub struct HiddenMarkovModel {
  * Model merging: Build HMM by merging states
  */
 pub struct ModelMerging {
-    pub hmm:          HiddenMarkovModel,
-    pub state_map:    HashMap<(usize, usize), usize>, // (original_seq, timestep) -> state
-    pub merge_parent: Vec<usize> // union find parent structure to manage merges
+    pub hmm: HiddenMarkovModel,
+    pub state_map: HashMap<(usize, usize), usize>, // (original_seq, timestep) -> state
+    pub merge_parent: Vec<usize>,                  // union find parent structure to manage merges
 }
 
 impl ModelMerging {
-
     pub fn shrink(&self) -> HiddenMarkovModel {
         let mut used_states = HashMap::new();
         let mut n_states = 0;
-        for i in 0 .. self.merge_parent.len() {
+        for i in 0..self.merge_parent.len() {
             let state = self.find_parent(i);
             if !used_states.contains_key(&state) {
-                used_states.insert(n_states, state);
+                used_states.insert(state, n_states);
                 n_states += 1;
             }
         }
-        let mut start  = vec![0.0; n_states];
-        let mut stop   = vec![0.0; n_states];
-        let mut trans  = vec![0.0; n_states * n_states];
+        println!(
+            "Original model: {} Compressed model: {}",
+            self.hmm.n_states, n_states
+        );
+        let mut start = vec![0.0; n_states];
+        let mut stop = vec![0.0; n_states];
+        let mut trans = vec![0.0; n_states * n_states];
         let mut states = vec![0.0; n_states * self.hmm.dim];
-        for i in 0 .. n_states {
+        for i in 0..self.hmm.n_states {
+            let i = self.find_parent(i);
             let state_i = used_states[&i];
-            start[i] = self.hmm.start[state_i];
-            stop[i]  = self.hmm.stop[state_i];
-            for j in 0 .. self.hmm.dim {
-                states[i * self.hmm.dim + j] = self.hmm.states[state_i * self.hmm.dim + j];
+            start[state_i] = self.hmm.start[i];
+            stop[state_i] = self.hmm.stop[i];
+            for j in 0..self.hmm.dim {
+                states[state_i * self.hmm.dim + j] = self.hmm.states[i * self.hmm.dim + j];
             }
-            for j in 0 .. n_states {
+            for j in 0..self.hmm.n_states {
+                let j = self.find_parent(j);
                 let state_j = used_states[&j];
-                trans[i * n_states + j] = self.hmm.trans[state_i * self.hmm.n_states + state_j];
+                trans[state_i * n_states + state_j] = self.hmm.trans[i * self.hmm.n_states + j];
             }
         }
         let dim = self.hmm.dim;
-        HiddenMarkovModel {n_states, dim, trans, start, stop, states}
+        HiddenMarkovModel {
+            n_states,
+            dim,
+            trans,
+            start,
+            stop,
+            states,
+        }
     }
 
-
-    pub fn merge_all (
-        &mut self, 
+    pub fn merge_all(
+        &mut self,
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
         perc: f32,
@@ -68,35 +80,48 @@ impl ModelMerging {
         let operations = ModelMerging::merges_from_alignments(paths, slices, perc, k);
         let mut closed = HashSet::new();
         for op in operations {
-            let state_i = self.state_map[&(op.slice_i, op.i)];
-            let state_j = self.state_map[&(op.slice_j, op.j)];
-            if closed.contains(&(state_i, state_j)) {
+            let i = self.state_map[&(op.slice_i, op.i)];
+            let j = self.state_map[&(op.slice_j, op.j)];
+            let state_i = self.find_parent(i);
+            let state_j = self.find_parent(j);
+            println!(
+                "Merging: {} and {} || with parent state {} and {}",
+                i, j, state_i, state_j
+            );
+            if !closed.contains(&(state_i, state_j)) {
                 closed.insert((state_i, state_j));
+                closed.insert((state_j, state_i));
                 self.merge(state_i, state_j);
             }
         }
     }
 
-    pub fn merge(&mut self, i: usize, j: usize) {
-        if i < j {
-            let state_i = self.find_parent(i);
-            let state_j = self.find_parent(j);
+    pub fn merge(&mut self, state_i: usize, state_j: usize) {
+        if state_i <= state_j {
             if state_i != state_j {
-                for k in 0 .. self.hmm.n_states {
-                    let to = if k != state_j { k } else { state_i };
-                    self.hmm.trans[state_i * self.hmm.n_states + to] += self.hmm.trans[state_j * self.hmm.n_states + to]
+                for k in 0..self.hmm.n_states {
+                    let to = k;
+                    self.hmm.trans[state_i * self.hmm.n_states + to] +=
+                        self.hmm.trans[state_j * self.hmm.n_states + to];
                 }
+                for k in 0..self.hmm.n_states {
+                    let from = k;
+                    self.hmm.trans[from * self.hmm.n_states + state_i] +=
+                        self.hmm.trans[from * self.hmm.n_states + state_j];
+                }
+                self.hmm.trans[state_i * self.hmm.n_states + state_i] += 1.0;
                 self.hmm.start[state_i] += self.hmm.start[state_j];
-                self.hmm.stop[state_i]  += self.hmm.stop[state_j];
-                for d in 0 .. self.hmm.dim {
-                    self.hmm.states[state_i * self.hmm.dim + d] += self.hmm.states[state_j * self.hmm.dim + d];
+                self.hmm.stop[state_i] += self.hmm.stop[state_j];
+                for d in 0..self.hmm.dim {
+                    self.hmm.states[state_i * self.hmm.dim + d] +=
+                        self.hmm.states[state_j * self.hmm.dim + d];
                     self.hmm.states[state_i * self.hmm.dim + d] /= 2.0;
                 }
-                self.merge_parent[state_j] = state_i;                
+                self.merge_parent[state_j] = state_i;
             }
         } else {
-            self.merge(j, i);
-        }        
+            self.merge(state_j, state_i);
+        }
     }
 
     pub fn find_parent(&self, i: usize) -> usize {
@@ -140,18 +165,22 @@ impl ModelMerging {
             }
         }
         let mut merge_parent = vec![];
-        for i in 0 .. n_states {
+        for i in 0..n_states {
             merge_parent.push(i);
         }
         let hmm = HiddenMarkovModel {
-                n_states,
-                dim,
-                start,
-                stop,
-                trans,
-                states,
+            n_states,
+            dim,
+            start,
+            stop,
+            trans,
+            states,
         };
-        ModelMerging { hmm, state_map, merge_parent }
+        ModelMerging {
+            hmm,
+            state_map,
+            merge_parent,
+        }
     }
 
     pub fn merges_from_alignments(
@@ -160,9 +189,10 @@ impl ModelMerging {
         perc: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
-        paths.iter()
-            .flat_map(|(i, j, p)| {ModelMerging::merges_from_alignment(*i, *j, slices, p, perc, k)})        
-            .collect()            
+        paths
+            .iter()
+            .flat_map(|(i, j, p)| ModelMerging::merges_from_alignment(*i, *j, slices, p, perc, k))
+            .collect()
     }
 
     pub fn merges_from_alignment(
@@ -175,6 +205,7 @@ impl ModelMerging {
     ) -> Vec<MergeOperation> {
         let distances: Vec<f32> = path.iter().map(|node| node.score).collect();
         let th = percentile(&mut distances.clone(), perc);
+        println!("Merging along alignment with threshold: {}", th);
         let mut moving_avg = vec![];
         for i in 0..distances.len() {
             let mut avg = 0.0;
@@ -183,59 +214,62 @@ impl ModelMerging {
             }
             moving_avg.push(avg);
         }
-        let slice_i = &slices[x];
-        let slice_j = &slices[y];
+        let slice_i = &slices[x].extract();
+        let slice_j = &slices[y].extract();
         let mut operations = vec![];
         for (t, node) in path.iter().enumerate() {
             let (i, j) = node.cur();
-            let distance = if t < k {
-                distances[t]
-            } else {
-                moving_avg[t - k]
-            };
-            let dist2prev_i = if i > 0 {
-                euclidean(slice_i.sequence.vec(i), slice_i.sequence.vec(i - 1))
-            } else {
-                std::f32::INFINITY
-            };
-            let dist2prev_j = if j > 0 {
-                euclidean(slice_j.sequence.vec(j), slice_j.sequence.vec(j - 1))
-            } else {
-                std::f32::INFINITY
-            };
-            if dist2prev_i < th {
-                operations.push(MergeOperation {
-                    slice_i: x,
-                    slice_j: x,
-                    i: i,
-                    j: i - 1,
-                    dist: dist2prev_i,
-                });
+            if i < slice_i.len() && j < slice_j.len() {
+                let distance = if t < k {
+                    distances[t]
+                } else {
+                    moving_avg[t - k]
+                };
+                let dist2prev_i = if i > 0 {
+                    euclidean(slice_i.vec(i), slice_i.vec(i - 1))
+                } else {
+                    std::f32::INFINITY
+                };
+                let dist2prev_j = if j > 0 {
+                    euclidean(slice_j.vec(j), slice_j.vec(j - 1))
+                } else {
+                    std::f32::INFINITY
+                };
+                if dist2prev_i < th {
+                    operations.push(MergeOperation {
+                        slice_i: x,
+                        slice_j: x,
+                        i: i,
+                        j: i - 1,
+                        dist: dist2prev_i,
+                    });
+                }
+                if dist2prev_j < th {
+                    operations.push(MergeOperation {
+                        slice_i: y,
+                        slice_j: y,
+                        i: j,
+                        j: j - 1,
+                        dist: dist2prev_j,
+                    });
+                }
+                match node.label {
+                    AlignmentLabel::Match if distance < th => operations.push(MergeOperation {
+                        slice_i: x,
+                        slice_j: y,
+                        i: i,
+                        j: j,
+                        dist: distance,
+                    }),
+                    _ => (),
+                };
             }
-            if dist2prev_j < th {
-                operations.push(MergeOperation {
-                    slice_i: y,
-                    slice_j: y,
-                    i: j,
-                    j: j - 1,
-                    dist: dist2prev_j,
-                });
-            }
-            match node.label {
-                AlignmentLabel::Match if distance < th => operations.push(MergeOperation {
-                    slice_i: x,
-                    slice_j: y,
-                    i: i,
-                    j: j,
-                    dist: distance,
-                }),
-                _ => (),
-            };
         }
         operations
     }
 }
 
+#[derive(Debug)]
 pub struct MergeOperation {
     pub slice_i: usize,
     pub slice_j: usize,

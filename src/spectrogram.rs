@@ -196,6 +196,10 @@ impl<'a> Slice<'a> {
         Slice{start, stop, sequence}
     }
 
+    pub fn len(&self) -> usize {
+        self.stop - self.start
+    }  
+
     /**
      * Materialise the range as a new spectrogram
      */

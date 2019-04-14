@@ -64,27 +64,30 @@ impl Templates {
     pub fn gen_markov(
         &self,
         filename_without_extension: String,
-        markov_model: HiddenMarkovModel,
+        markov_model: &HiddenMarkovModel,
     ) -> Result<String> {
+        let mut n_transitions = 0;
         let mut s = "digraph {".to_string();
         for i in 0..markov_model.n_states {
             if markov_model.start[i] > 0.0 {
-                s.push_str(&format!("\tstart -> {};", i));
+                s.push_str(&format!("\tstart -> {};\n", i));
             }
             if markov_model.stop[i] > 0.0 {
-                s.push_str(&format!("\t{} -> stop;", i));
+                s.push_str(&format!("\t{} -> stop;\n", i));
             }
             for j in 0..markov_model.n_states {
                 if markov_model.trans[i * markov_model.n_states + j] > 0.0 {
-                    s.push_str(&format!("\t{} -> {};", i, j));
+                    s.push_str(&format!("\t{} -> {} [label=\"{:.2}\"];\n", i, j, markov_model.trans[i * markov_model.n_states + j]));
+                    n_transitions += 1;
                 }
             }
         }
+        println!("Creating model with: {}", n_transitions);
         s.push_str("}");
         let filename = format!("{}.dot", filename_without_extension);
         let mut fp = File::create(&format!("{}/{}", self.out_docs, filename))?;
         fp.write_fmt(format_args!("{}", s))?;
-        self.figure(&filename_without_extension, &filename_without_extension)
+        self.figure(&filename_without_extension, &"A markov chain".to_string())
     }
 
     /// Dendogram generation from clustering results

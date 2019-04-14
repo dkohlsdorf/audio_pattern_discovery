@@ -5,6 +5,7 @@ extern crate rayon;
 
 use std::time::Instant;
 
+// Normalise HMM
 // TODO: Pretty up reports
 // TODO: Pretty up output
 // TODO: Move main -> discovery
@@ -85,15 +86,19 @@ fn main() {
     templates.write_slices_audio(&grouped, &interesting, &vec![wav], 128, 10000);
 
     let mut hmm_parts = vec![];
-    for cluster in grouped {
+    for (c, cluster) in grouped.iter().enumerate() {
+        println!("HMM model merging from: {}", c);
         let mut instances = vec![];
         let mut paths = vec![];
         let n = workers.data.len();
         for (x, i) in cluster.iter().enumerate() {
-            instances.push(interesting[*i].clone());        
+            instances.push(interesting[*i].clone());                    
             for (y, j) in cluster.iter().enumerate() {
-                let alignment = workers.result.clone().lock().unwrap()[*i * n + *j].path();
-                paths.push((x, y, alignment));
+                if y < x {                
+                    println!("Path between {} and {}", x, y);
+                    let alignment = result[*i * n + *j].path();
+                    paths.push((x, y, alignment));
+                }
             }
         }
         let mut merger = aligned_model_merging::ModelMerging::from_slices(&instances);
@@ -103,7 +108,7 @@ fn main() {
             discover.merging_percentile,
             discover.merging_moving,
         );
-        if let Ok(img) = templates.gen_markov("markov".to_string(), merger.shrink()) {
+        if let Ok(img) = templates.gen_markov(format!("markov_chain_{}", c), &merger.shrink()) {
             hmm_parts.push(img);
         }
     }

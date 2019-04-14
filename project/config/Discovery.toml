@@ -12,6 +12,6 @@ vat_min_len    = 50
 alignment_workers     = 8 
 clustering_percentile = 0.1
 
-# Model Merging 
-merging_percentile = 0.25
+# MODEL MERGING 
+merging_percentile = 0.65
 merging_moving     = 15
