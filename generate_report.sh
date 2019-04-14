@@ -9,6 +9,7 @@ mkdir output/audio
 
 # Run tool
 cargo run > output/log.txt
+
 # Generate reports
 cd output
 dot -Tpng -o img/markov.png docs/markov.dot 

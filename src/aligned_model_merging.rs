@@ -2,8 +2,11 @@ use crate::alignments::*;
 use crate::numerics::*;
 use crate::spectrogram::*;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
+/**
+ * Hidden Markov Model
+ */
 pub struct HiddenMarkovModel {
     pub n_states: usize,
     pub dim: usize,
@@ -13,8 +16,66 @@ pub struct HiddenMarkovModel {
     pub states: Vec<f32>,
 }
 
-impl HiddenMarkovModel {
-    pub fn from_slices(slices: &[Slice]) -> (HiddenMarkovModel, HashMap<(usize, usize), usize>) {
+/**
+ * Model merging: Build HMM by merging states
+ */
+pub struct ModelMerging {
+    pub hmm:          HiddenMarkovModel,
+    pub state_map:    HashMap<(usize, usize), usize>, // (original_seq, timestep) -> state
+    pub merge_parent: Vec<usize> // union find parent structure to manage merges
+}
+
+impl ModelMerging {
+    pub fn merge_all (
+        &mut self, 
+        paths: &[(usize, usize, Vec<AlignmentNode>)],
+        slices: &[Slice],
+        th: f32,
+        k: usize,
+    ) {
+        let operations = ModelMerging::merges_from_alignments(paths, slices, th, k);
+        let mut closed = HashSet::new();
+        for op in operations {
+            let state_i = self.state_map[&(op.slice_i, op.i)];
+            let state_j = self.state_map[&(op.slice_j, op.j)];
+            if closed.contains(&(state_i, state_j)) {
+                closed.insert((state_i, state_j));
+                self.merge(state_i, state_j);
+            }
+        }
+    }
+
+    pub fn merge(&mut self, i: usize, j: usize) {
+        if i < j {
+            let state_i = self.find_parent(i);
+            let state_j = self.find_parent(j);
+            if state_i != state_j {
+                for k in 0 .. self.hmm.n_states {
+                    let to = if k != state_j { k } else { state_i };
+                    self.hmm.trans[state_i * self.hmm.n_states + to] += self.hmm.trans[state_j * self.hmm.n_states + to]
+                }
+                self.hmm.start[state_i] += self.hmm.start[state_j];
+                self.hmm.stop[state_i]  += self.hmm.stop[state_j];
+                for d in 0 .. self.hmm.dim {
+                    self.hmm.states[state_i * self.hmm.dim + d] += self.hmm.states[state_j * self.hmm.dim + d];
+                    self.hmm.states[state_i * self.hmm.dim + d] /= 2.0;
+                }
+                self.merge_parent[state_j] = state_i;                
+            }
+        } else {
+            self.merge(j, i);
+        }        
+    }
+
+    pub fn find_parent(&self, i: usize) -> usize {
+        let mut p = i;
+        while p != self.merge_parent[p] {
+            p = self.merge_parent[p];
+        }
+        p
+    }
+
+    pub fn from_slices(slices: &[Slice]) -> ModelMerging {
         let dim = slices[0].sequence.n_bins;
         let mut states: Vec<f32> = vec![];
         let mut n_states = 0;
@@ -46,25 +107,29 @@ impl HiddenMarkovModel {
                 }
             }
         }
-        (HiddenMarkovModel {
+        let mut merge_parent = vec![];
+        for i in 0 .. n_states {
+            merge_parent.push(i);
+        }
+        let hmm = HiddenMarkovModel {
                 n_states,
                 dim,
                 start,
                 stop,
                 trans,
                 states,
-        }, state_map)
+        };
+        ModelMerging { hmm, state_map, merge_parent }
     }
 
     pub fn merges_from_alignments(
-        &self,
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
         th: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
         paths.iter()
-            .flat_map(|(i, j, p)| {HiddenMarkovModel::merges_from_alignment(*i, *j, slices, p, th, k)})        
+            .flat_map(|(i, j, p)| {ModelMerging::merges_from_alignment(*i, *j, slices, p, th, k)})        
             .collect()            
     }
 

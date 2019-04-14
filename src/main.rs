@@ -5,13 +5,11 @@ extern crate rayon;
 
 use std::time::Instant;
 
-// TODO: define model / align against model stop merging
-// TODO: only merge in each cluster
-// TODO: implement merge and decode
 // TODO: Pretty up reports
 // TODO: Pretty up output
 // TODO: Move main -> discovery
 // TODO: UI with html and javascript >> poll piped log file from server
+// TODO: Project management ... save project folders ... move them to a specific location
 
 pub mod discovery;
 pub mod aligned_model_merging;
@@ -73,8 +71,8 @@ fn main() {
     );
 
     templates.write_slices_audio(&grouped, &interesting, &vec![wav], 128, 10000);
-    let (model, _) = aligned_model_merging::HiddenMarkovModel::from_slices(&interesting);
-    if let Ok(image) = templates.gen_markov("markov".to_string(), model) {
+    let merger = aligned_model_merging::ModelMerging::from_slices(&interesting);
+    if let Ok(image) = templates.gen_markov("markov".to_string(), merger.hmm) {
         if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
             if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
                 let mut latex_parts = ceps_tex;
