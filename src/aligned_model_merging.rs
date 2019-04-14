@@ -54,14 +54,16 @@ impl ModelMerging {
             }
         }
         let dim = self.hmm.dim;
-        HiddenMarkovModel {
+        let mut hmm = HiddenMarkovModel {
             n_states,
             dim,
             trans,
             start,
             stop,
             states,
-        }
+        };
+        hmm.normalize_transitions();
+        hmm
     }
 
     /**

@@ -5,11 +5,6 @@ extern crate rayon;
 
 use std::time::Instant;
 
-// Normalise HMM and decode
-
-// TODO: Pretty up reports
-// TODO: Pretty up output
-
 // TODO: Move main -> discovery
 // TODO: UI with html and javascript >> poll piped log file from server
 // TODO: Project management ... save project folders ... move them to a specific location
@@ -19,14 +14,21 @@ pub mod alignments;
 pub mod audio;
 pub mod clustering;
 pub mod discovery;
+pub mod hidden_markov_model;
 pub mod numerics;
 pub mod reporting;
 pub mod spectrogram;
-pub mod hidden_markov_model;
 
 fn main() {
+    println!("==== Pattern Discovery ====");
+    println!("# by Daniel Kohlsdorf     #");
+    println!("===========================");
+
     let templates = reporting::Templates::from_toml("project/config/Templates.toml".to_string());
     let discover = discovery::Discovery::from_toml("project/config/Discovery.toml".to_string());
+    println!("Template Config  {:?}", templates);
+    println!("Discovery Config {:?}", discover);
+
     let wav = audio::AudioData::from_file(String::from("test.wav"), 0);
     let spec = spectrogram::NDSequence::new(
         discover.dft_win,
@@ -34,6 +36,8 @@ fn main() {
         discover.ceps_filter,
         &wav,
     );
+
+    println!("==== Extract Interesting Regions ==== ");
     let interesting = spec.interesting_ranges(
         discover.vat_moving,
         discover.vat_percentile,
@@ -44,6 +48,7 @@ fn main() {
         signals.push(slice.extract());
     }
 
+    println!("==== Plot All Regions ==== ");
     let mut file_names = vec![];
     let mut file_names_ceps = vec![];
     for (i, signal) in signals.iter().enumerate() {
@@ -67,6 +72,7 @@ fn main() {
         file_names.push(file_id);
     }
 
+    println!("==== Starting Alignment And Clustering ==== ");
     let n = signals.len();
     let mut workers = alignments::AlignmentWorkers::new(signals);
     let now = Instant::now();
@@ -81,6 +87,7 @@ fn main() {
         discover.clustering_percentile,
     );
 
+    println!("==== Writing Cluster Audio ==== ");
     let grouped = clustering::AgglomerativeClustering::cluster_sets(
         &operations,
         &clusters,
@@ -88,18 +95,24 @@ fn main() {
     );
     templates.write_slices_audio(&grouped, &interesting, &vec![wav], 128, 10000);
 
-    let mut sample_distances: Vec<f32> = result.iter().flat_map(|alignment| alignment.path()).map(|node| node.score).collect();
+    println!("==== Model Merging ==== ");
+    let mut sample_distances: Vec<f32> = result
+        .iter()
+        .flat_map(|alignment| alignment.path())
+        .map(|node| node.score)
+        .collect();
     let merge_threshold = numerics::percentile(&mut sample_distances, discover.merging_percentile);
     let mut hmm_parts = vec![];
+    let mut hmms = vec![];
     for (c, cluster) in grouped.iter().enumerate() {
         println!("HMM model merging from: {}", c);
         let mut instances = vec![];
         let mut paths = vec![];
         let n = workers.data.len();
         for (x, i) in cluster.iter().enumerate() {
-            instances.push(interesting[*i].clone());                    
+            instances.push(interesting[*i].clone());
             for (y, j) in cluster.iter().enumerate() {
-                if y < x {                
+                if y < x {
                     println!("Path between {} and {}", x, y);
                     let alignment = result[*i * n + *j].path();
                     paths.push((x, y, alignment));
@@ -107,23 +120,47 @@ fn main() {
             }
         }
         let mut merger = aligned_model_merging::ModelMerging::from_slices(&instances);
-        merger.merge_all(
-            &paths,
-            &instances,
-            merge_threshold,
-            discover.merging_moving,
-        );
-        if let Ok(img) = templates.gen_markov(format!("markov_chain_{}", c), &merger.shrink()) {
+        merger.merge_all(&paths, &instances, merge_threshold, discover.merging_moving);
+        hmms.push(merger.shrink());
+        if let Ok(img) = templates.gen_markov(format!("markovchain_{}", c), &merger.shrink()) {
             hmm_parts.push(img);
         }
     }
 
-    if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
-        if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
-            let mut latex_parts = ceps_tex;
-            latex_parts.extend(spec_tex);
-            latex_parts.extend(hmm_parts);
-            let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
+    println!("==== Decoding ==== ");
+    let col_names = vec![
+        "Cluster".to_string(),
+        "HMM".to_string(),
+        "Sequence".to_string(),
+        "LL".to_string()
+    ];
+    let mut cols = vec![];
+    for (c, cluster) in grouped.iter().enumerate() {
+        for (i, hmm) in hmms.iter().enumerate() {
+            for s in cluster {
+                let ll = hmm.viterbi(&interesting[*s].extract());
+                cols.push(vec![
+                    c.to_string(),
+                    i.to_string(),
+                    s.to_string(),
+                    ll.to_string()
+                ]);
+            }
+        }
+    }   
+
+    println!("==== Generate Report ==== ");
+    if let Ok(table) = templates.table(col_names, cols) {
+        if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
+            if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
+                let mut latex_parts = ceps_tex;
+                latex_parts.extend(spec_tex);
+                latex_parts.extend(hmm_parts);
+                latex_parts.push(table);
+                let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
+            }
         }
     }
+    println!("==== Done! ==== ");
+
 }

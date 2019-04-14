@@ -20,9 +20,10 @@ pub struct Templates {
     document: String,
     dendogram: String,
     figure: String,
+    table: String
 }
 
-impl Templates {
+impl Templates {    
     /// load from config
     pub fn from_toml(file: String) -> Templates {
         let mut template_conf = String::new();
@@ -31,6 +32,34 @@ impl Templates {
             .read_to_string(&mut template_conf);
         let templates: Templates = toml::from_str(&template_conf).unwrap();
         templates
+    }
+
+    /// Generates a latex table    
+    pub fn table(&self, col_names: Vec<String>, cols: Vec<Vec<String>>) -> Result<String> {
+        let mut file = File::open(&self.table)?;
+        let mut template = String::new();
+        file.read_to_string(&mut template)?;
+        let mut formating = "|".to_string();
+        for _ in 0 .. cols.len() {
+            formating.push_str("c|");
+        }
+        let mut header = col_names[0].clone();
+        for i in 1 .. col_names.len() {
+            header.push_str(&format!("& {}", col_names[i]));
+        }
+        header.push_str("\\\\\n");
+        let mut content = String::new();
+        for col in cols {
+            content.push_str(&col[0].clone());
+            for i in 1 .. col.len() {
+                content.push_str(&format!("& {}", &col[i]));
+            }
+            content.push_str("\\\\\n");
+        }
+        Ok(template
+            .replace("<format>",  &formating)
+            .replace("<heading>", &header)
+            .replace("<content>", &content))
     }
 
     /// Generate a latex figure
@@ -87,7 +116,7 @@ impl Templates {
         let filename = format!("{}.dot", filename_without_extension);
         let mut fp = File::create(&format!("{}/{}", self.out_docs, filename))?;
         fp.write_fmt(format_args!("{}", s))?;
-        self.figure(&filename_without_extension, &"A markov chain".to_string())
+        self.figure(&filename_without_extension, &format!("${}$", &filename_without_extension))
     }
 
     /// Dendogram generation from clustering results
