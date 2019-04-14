@@ -13,6 +13,7 @@ pub struct Discovery {
     pub alignment_workers: usize,
     pub clustering_percentile: f32,
     pub merging_percentile: f32,
+    pub merging_internal_percentile: f32,
     pub merging_moving: usize
 }
 

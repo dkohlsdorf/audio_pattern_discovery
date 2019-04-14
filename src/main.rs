@@ -120,7 +120,7 @@ fn main() {
             }
         }
         let mut merger = aligned_model_merging::ModelMerging::from_slices(&instances);
-        merger.merge_all(&paths, &instances, merge_threshold, discover.merging_moving);
+        merger.merge_all(&paths, &instances, discover.merging_internal_percentile, merge_threshold, discover.merging_moving);
         hmms.push(merger.shrink());
         if let Ok(img) = templates.gen_markov(format!("markovchain_{}", c), &merger.shrink()) {
             hmm_parts.push(img);

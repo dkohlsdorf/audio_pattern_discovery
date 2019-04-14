@@ -187,7 +187,7 @@ impl Templates {
                 self.img_w, self.img_h, path
             )
         } else {
-            format!("\\includegraphics[width=0.3\\textwidth]{{{}}}\n", path)
+            format!("\\includegraphics[height=\\textheight]{{{}}}\n", path)
         }
     }
 

@@ -75,10 +75,11 @@ impl ModelMerging {
         &mut self,
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
+        perc: f32,
         th: f32,
         k: usize,
     ) { 
-        let operations = ModelMerging::merges_from_alignments(paths, slices, th, k);
+        let operations = ModelMerging::merges_from_alignments(paths, slices, perc, th , k);
         let mut closed = HashSet::new();
         for op in operations {
             let i = self.state_map[&(op.slice_i, op.i)];
@@ -204,12 +205,13 @@ impl ModelMerging {
     fn merges_from_alignments(
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
+        perc: f32,
         th: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
         paths
             .iter()
-            .flat_map(|(i, j, p)| ModelMerging::merges_from_alignment(*i, *j, slices, p, th, k))
+            .flat_map(|(i, j, p)| ModelMerging::merges_from_alignment(*i, *j, slices, p, perc, th, k))
             .collect()
     }
 
@@ -221,6 +223,7 @@ impl ModelMerging {
         y: usize,
         slices: &[Slice],
         path: &[AlignmentNode],
+        perc: f32,
         th: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
@@ -235,9 +238,21 @@ impl ModelMerging {
             }
             moving_avg.push(avg);
         }
-        
+
         let slice_i = &slices[x].extract();
         let slice_j = &slices[y].extract();
+
+        let mut dist_i = vec![0.0];
+        for i in 1 .. slice_i.len() {
+            dist_i.push(euclidean(slice_i.vec(i), slice_i.vec(i - 1)));
+        }
+        let mut dist_j = vec![0.0];
+        for i in 1 .. slice_j.len() {
+            dist_j.push(euclidean(slice_j.vec(i), slice_j.vec(i - 1)));
+        }
+        let internal_th_i = percentile(&mut dist_i.clone(), perc);
+        let internal_th_j = percentile(&mut dist_j.clone(), perc);
+
         let mut operations = vec![];
         for (t, node) in path.iter().enumerate() {
             let (i, j) = node.cur();
@@ -250,16 +265,16 @@ impl ModelMerging {
                 };
                 // check for merge possibility in the sequence
                 let dist2prev_i = if i > 0 {
-                    euclidean(slice_i.vec(i), slice_i.vec(i - 1))
+                    dist_i[i]
                 } else {
                     std::f32::INFINITY
                 };
                 let dist2prev_j = if j > 0 {
-                    euclidean(slice_j.vec(j), slice_j.vec(j - 1))
+                    dist_j[j]
                 } else {
                     std::f32::INFINITY
                 };            
-                if dist2prev_i < th {
+                if dist2prev_i < internal_th_i {
                     operations.push(MergeOperation {
                         slice_i: x,
                         slice_j: x,
@@ -268,7 +283,7 @@ impl ModelMerging {
                         dist: dist2prev_i,
                     });
                 }
-                if dist2prev_j < th {
+                if dist2prev_j < internal_th_j {
                     operations.push(MergeOperation {
                         slice_i: y,
                         slice_j: y,
