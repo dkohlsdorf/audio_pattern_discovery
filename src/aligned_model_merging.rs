@@ -26,14 +26,46 @@ pub struct ModelMerging {
 }
 
 impl ModelMerging {
+
+    pub fn shrink(&self) -> HiddenMarkovModel {
+        let mut used_states = HashMap::new();
+        let mut n_states = 0;
+        for i in 0 .. self.merge_parent.len() {
+            let state = self.find_parent(i);
+            if !used_states.contains_key(&state) {
+                used_states.insert(n_states, state);
+                n_states += 1;
+            }
+        }
+        let mut start  = vec![0.0; n_states];
+        let mut stop   = vec![0.0; n_states];
+        let mut trans  = vec![0.0; n_states * n_states];
+        let mut states = vec![0.0; n_states * self.hmm.dim];
+        for i in 0 .. n_states {
+            let state_i = used_states[&i];
+            start[i] = self.hmm.start[state_i];
+            stop[i]  = self.hmm.stop[state_i];
+            for j in 0 .. self.hmm.dim {
+                states[i * self.hmm.dim + j] = self.hmm.states[state_i * self.hmm.dim + j];
+            }
+            for j in 0 .. n_states {
+                let state_j = used_states[&j];
+                trans[i * n_states + j] = self.hmm.trans[state_i * self.hmm.n_states + state_j];
+            }
+        }
+        let dim = self.hmm.dim;
+        HiddenMarkovModel {n_states, dim, trans, start, stop, states}
+    }
+
+
     pub fn merge_all (
         &mut self, 
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
-        th: f32,
+        perc: f32,
         k: usize,
     ) {
-        let operations = ModelMerging::merges_from_alignments(paths, slices, th, k);
+        let operations = ModelMerging::merges_from_alignments(paths, slices, perc, k);
         let mut closed = HashSet::new();
         for op in operations {
             let state_i = self.state_map[&(op.slice_i, op.i)];
@@ -125,11 +157,11 @@ impl ModelMerging {
     pub fn merges_from_alignments(
         paths: &[(usize, usize, Vec<AlignmentNode>)],
         slices: &[Slice],
-        th: f32,
+        perc: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
         paths.iter()
-            .flat_map(|(i, j, p)| {ModelMerging::merges_from_alignment(*i, *j, slices, p, th, k)})        
+            .flat_map(|(i, j, p)| {ModelMerging::merges_from_alignment(*i, *j, slices, p, perc, k)})        
             .collect()            
     }
 
@@ -138,10 +170,11 @@ impl ModelMerging {
         y: usize,
         slices: &[Slice],
         path: &[AlignmentNode],
-        th: f32,
+        perc: f32,
         k: usize,
     ) -> Vec<MergeOperation> {
         let distances: Vec<f32> = path.iter().map(|node| node.score).collect();
+        let th = percentile(&mut distances.clone(), perc);
         let mut moving_avg = vec![];
         for i in 0..distances.len() {
             let mut avg = 0.0;

@@ -183,6 +183,7 @@ impl NDSequence {
 /**
  * A range in an ND Sequence
  */
+#[derive(Clone)]
 pub struct Slice<'a> {
     pub start: usize,
     pub stop: usize,

@@ -11,7 +11,9 @@ pub struct Discovery {
     pub vat_percentile: f32,
     pub vat_min_len: usize,
     pub alignment_workers: usize,
-    pub clustering_percentile: f32
+    pub clustering_percentile: f32,
+    pub merging_percentile: f32,
+    pub merging_moving: usize
 }
 
 impl Discovery {
