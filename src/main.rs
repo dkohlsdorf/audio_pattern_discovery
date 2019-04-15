@@ -6,8 +6,7 @@ extern crate rayon;
 use std::time::Instant;
 
 // TODO: push more data and aggregate statistics
-// TODO: Backtracking and visualise states
-// TODO: generate html output with download files
+// TODO: Backtracking and cut sub regions 
 
 pub mod aligned_model_merging;
 pub mod alignments;
@@ -80,6 +79,7 @@ fn main() {
     println!("Align 8 threads took {}", now.elapsed().as_secs());
 
     let result = workers.result.lock().unwrap();
+    let alignments = templates.dump_all_alignments(interesting.len(), &result);
     let distances: Vec<f32> = result.iter().map(|alignment| alignment.score()).collect();
     let (operations, clusters) = clustering::AgglomerativeClustering::clustering(
         distances,
@@ -96,15 +96,25 @@ fn main() {
     templates.write_slices_audio(&grouped, &interesting, &vec![wav], 128, 10000);
 
     println!("==== Model Merging ==== ");
-    let mut sample_distances: Vec<f32> = result
-        .iter()
-        .enumerate()
-        .flat_map(|(i, alignment)| {
-            println!("Path For Threshold Estimation: {}", i);
-            alignment.path()
-        })
-        .map(|node| node.score)
-        .collect();
+    let mut sample_distances = vec![];
+    let n = interesting.len();
+    for i in 0..n {
+        for j in 0..n {
+            let path = result[i * n + j].path();
+            if path.len() == 0 {
+                println!(
+                    "No Alignment Found {} {} {} {}",
+                    i,
+                    j,
+                    result[i * n + j].n,
+                    result[i * n + j].m
+                );
+            }
+            for node in path {
+                sample_distances.push(node.score);
+            }
+        }
+    }
     let merge_threshold = numerics::percentile(&mut sample_distances, discover.merging_percentile);
     let mut hmm_parts = vec![];
     let mut hmms = vec![];
@@ -124,7 +134,13 @@ fn main() {
             }
         }
         let mut merger = aligned_model_merging::ModelMerging::from_slices(&instances);
-        merger.merge_all(&paths, &instances, discover.merging_internal_percentile, merge_threshold, discover.merging_moving);
+        merger.merge_all(
+            &paths,
+            &instances,
+            discover.merging_internal_percentile,
+            merge_threshold,
+            discover.merging_moving,
+        );
         hmms.push(merger.shrink());
         if let Ok(img) = templates.gen_markov(format!("markovchain_{}", c), &merger.shrink()) {
             hmm_parts.push(img);
@@ -136,7 +152,7 @@ fn main() {
         "Cluster".to_string(),
         "HMM".to_string(),
         "Sequence".to_string(),
-        "LL".to_string()
+        "LL".to_string(),
     ];
     let mut cols = vec![];
     for (c, cluster) in grouped.iter().enumerate() {
@@ -147,24 +163,31 @@ fn main() {
                     c.to_string(),
                     i.to_string(),
                     s.to_string(),
-                    ll.to_string()
+                    ll.to_string(),
                 ]);
             }
         }
-    }   
+    }
 
     println!("==== Generate Report ==== ");
-    if let Ok(table) = templates.table(col_names, cols) {
-        if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
-            if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
-                let mut latex_parts = ceps_tex;
-                latex_parts.extend(spec_tex);
-                latex_parts.extend(hmm_parts);
-                latex_parts.push(table);
-                let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
+    if let Ok(alignments) = alignments {
+        if let Ok(table) = templates.table(col_names, cols) {
+            if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
+                if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {                   
+                    let mut latex_parts = vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
+                    latex_parts.extend(ceps_tex);
+                    latex_parts.push("\\chapter{Clusters With Spectrum Visualisation}".to_string());
+                    latex_parts.extend(spec_tex); 
+                    latex_parts.push("\\chapter{Hidden Markov Models For Each Cluster}".to_string());                   
+                    latex_parts.extend(hmm_parts);
+                    latex_parts.push("\\chapter{Log Likelihoods}".to_string());                   
+                    latex_parts.push(table);                    
+                    latex_parts.push("\\chapter{All DTW Alignments}".to_string());                   
+                    latex_parts.extend(alignments);
+                    let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
+                }
             }
         }
     }
     println!("==== Done! ==== ");
-
 }

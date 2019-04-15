@@ -235,7 +235,6 @@ impl ModelMerging {
         k: usize,
     ) -> Vec<MergeOperation> {
         let distances: Vec<f32> = path.iter().map(|node| node.score).collect();
-        println!("Merging along alignment with threshold: {}", th);
         // smooth all distances
         let mut moving_avg = vec![];
         for i in 0..distances.len() {
@@ -259,6 +258,7 @@ impl ModelMerging {
         }
         let internal_th_i = percentile(&mut dist_i.clone(), perc);
         let internal_th_j = percentile(&mut dist_j.clone(), perc);
+        println!("Merging along alignment with threshold: {} {} {}", th, internal_th_i, internal_th_j);
 
         let mut operations = vec![];
         for (t, node) in path.iter().enumerate() {
@@ -272,12 +272,12 @@ impl ModelMerging {
                 };
                 // check for merge possibility in the sequence
                 let dist2prev_i = if i > 0 {
-                    dist_i[i]
+                    euclidean(slice_i.vec(i), slice_i.vec(i - 1))
                 } else {
                     std::f32::INFINITY
                 };
                 let dist2prev_j = if j > 0 {
-                    dist_j[j]
+                   euclidean(slice_j.vec(j), slice_j.vec(j - 1))
                 } else {
                     std::f32::INFINITY
                 };            

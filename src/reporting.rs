@@ -4,6 +4,8 @@ use crate::hidden_markov_model::*;
 use crate::audio::*;
 use crate::clustering::*;
 use crate::spectrogram::*;
+use crate::alignments::*;
+use crate::numerics::*;
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -24,6 +26,7 @@ pub struct Templates {
 }
 
 impl Templates {    
+
     /// load from config
     pub fn from_toml(file: String) -> Templates {
         let mut template_conf = String::new();
@@ -32,6 +35,40 @@ impl Templates {
             .read_to_string(&mut template_conf);
         let templates: Templates = toml::from_str(&template_conf).unwrap();
         templates
+    }
+
+    /// Write all alignments to disc
+    pub fn dump_all_alignments(&self, n: usize, results: &[Alignment]) -> Result<Vec<String>> {
+        let mut figures = vec![];        
+        for i in 0 .. n {
+            for j in 0 .. n {                
+                if i != j {
+                    let N = results[i * n + j].n;
+                    let M = results[i * n + j].m;
+                    let mut dp = vec![0.0; N * M];
+                    for x in 0 .. N {
+                        for y in 0 .. M {
+                            if let Some(node) = results[i * n + j].sparse.get(&(x, y)) {
+                                if node.score_on_path.is_finite() {
+                                    dp[x * M + y] = node.score_on_path;
+                                }
+                            }
+                        }
+                    }    
+                    let max_val = max(&dp);
+                    let min_val = min(&dp);
+                    let img: Vec<u8>= dp.iter().map(|x| ((x - min_val) / (max_val - min_val) * 255.0) as u8 ).collect();
+                    let filename = format!("alignment_{}_{}.png", i, j);
+                    println!("Dumping log of alignments: {}", filename);
+                    let figure = self.figure(
+                        &format!("alignment_{}_{}", i, j), 
+                        &format!("Alignment between sequence {} and {}", i, j))?;
+                    figures.push(figure);
+                    self.plot(filename, &img, N as u32, M as u32)?;
+                }                
+            }
+        }
+        Ok(figures)
     }
 
     /// Generates a latex table    
@@ -102,6 +139,9 @@ impl Templates {
                 s.push_str(&format!("{} [color=red];\n", i));
             }
         }
+        s.push_str("start [color=red];\n");
+        s.push_str("stop [color=red];\n");
+
         for i in 0..markov_model.n_states {
             if markov_model.start[i] > 0.0 {
                 s.push_str(&format!("\tstart -> {};\n", i));
@@ -177,9 +217,7 @@ impl Templates {
     pub fn plot(&self, file: String, pixels: &[u8], rows: u32, cols: u32) -> Result<()> {
         let output = File::create(format!("{}/{}", self.out_images, file))?;
         let encoder = image::png::PNGEncoder::new(output);
-        encoder
-            .encode(&pixels, cols, rows, image::ColorType::Gray(8))
-            .unwrap();
+        encoder.encode(&pixels, cols, rows, image::ColorType::Gray(8))?;
         Ok(())
     }
 
@@ -192,7 +230,7 @@ impl Templates {
                 self.img_w, self.img_h, path
             )
         } else {
-            format!("\\includegraphics[height=\\textheight]{{{}}}\n", path)
+            format!("\\includegraphics[width=\\textwidth,height=\\textheight,keepaspectratio]{{{}}}\n", path)
         }
     }
 

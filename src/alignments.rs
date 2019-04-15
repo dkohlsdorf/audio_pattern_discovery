@@ -175,7 +175,7 @@ impl Alignment {
         if self.m == 0 && self.n == 0 {
             std::f32::INFINITY
         } else {
-            match self.sparse.get(&(self.n, self.m)) {
+            match self.sparse.get(&(self.n - 1, self.m - 1)) {
                 Some(node) => node.score_on_path / (self.n + self.m) as f32,
                 None => std::f32::INFINITY,
             }
@@ -186,17 +186,22 @@ impl Alignment {
      * Back tracking through alignment
      */
     pub fn path(&self) -> Vec<AlignmentNode> {
-        if let Some(node) = self.sparse.get(&(self.n, self.m)) {
-            let mut node = node.clone();
-            let mut path = vec![];
-            while !node.is_start() {
-                path.push(node.clone());
-                node = self.sparse[&(node.prev_i, node.prev_j)].clone();
+        if self.n > 0 && self.m > 0 {
+            if let Some(node) = self.sparse.get(&(self.n, self.m)) {
+                let mut node = node.clone();
+                let mut path = vec![];
+                while !node.is_start() {
+                    path.push(node.clone());
+                    node = self.sparse[&(node.prev_i, node.prev_j)].clone();
+                }
+                path.reverse();
+                path
+            } else {
+                let is_empty = self.m == 0 && self.n == 0;
+                println!("Warning: can not find {} {} {}", self.n, self.m, is_empty);
+                vec![]
             }
-            path.reverse();
-            path
-        } else {            
-            println!("Warning: can not find {} {} ", self.n, self.m);
+        } else {
             vec![]
         }
     }
@@ -266,17 +271,20 @@ impl Alignment {
     ) {
         self.n = x.len();
         self.m = y.len();
-        let w = usize::max(params.warping_band, abs(self.n, self.m));
+        let w = usize::max(params.warping_band, abs(self.n, self.m)) + 2;
         let mut last_seen = (0, 0);
         for i in 1..self.n + 1 {
-            for j in usize::max(diff(i, w), 1) .. usize::min(i + w, self.m + 1) {
+            for j in usize::max(diff(i, w), 1)..usize::min(i + w, self.m + 1) {
                 let node = self.alignment_score(i, j, &x, &y, params);
                 self.sparse.insert((i, j), node);
                 last_seen = (i, j);
             }
         }
         if self.n != last_seen.0 && self.m != last_seen.1 {
-            println!("Aligning: {} {} {} {} {}", self.n, self.m, last_seen.0, last_seen.1, w);
+            println!(
+                "Aligning: {} {} {} {} {}",
+                self.n, self.m, last_seen.0, last_seen.1, w
+            );
         }
     }
 }
