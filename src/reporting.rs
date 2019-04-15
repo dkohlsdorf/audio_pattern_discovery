@@ -22,7 +22,8 @@ pub struct Templates {
     document: String,
     dendogram: String,
     figure: String,
-    table: String
+    table: String,
+    result_html: String
 }
 
 impl Templates {    
@@ -35,6 +36,32 @@ impl Templates {
             .read_to_string(&mut template_conf);
         let templates: Templates = toml::from_str(&template_conf).unwrap();
         templates
+    }
+
+    pub fn write_html(&self, out: String, cluster_files: &[String], sub_sequence: &[String]) -> Result<()>{
+        let mut clusters  = String::new();
+        let mut sequences = String::new();
+        clusters.push_str("<ul>");
+        for cluster in cluster_files.iter() {
+            let p = format!("{}/{}", "audio", cluster);
+            clusters.push_str(&format!("<li><a href=\"{}\">{}</a></li>\n", &p, &p));
+        }
+        clusters.push_str("</ul>");
+        sequences.push_str("<ul>");
+        for cluster in sub_sequence.iter() {
+            let p = format!("{}/{}", "audio", cluster);
+            sequences.push_str(&format!("<li><a href=\"{}\">{}</a></li>\n", &p, &p));
+        }
+        sequences.push_str("</ul>");
+        let mut file = File::open(&self.result_html)?;
+        let mut template = String::new();
+        file.read_to_string(&mut template)?;
+        let filled = template
+            .replace("[CLUSTERS_WAV]", &clusters)
+            .replace("[SUB_WAV]", &sequences);
+        let mut output = File::create(out)?;
+        output.write_fmt(format_args!("{}", filled))?;
+        Ok(())
     }
 
     /// Write all alignments to disc
@@ -78,7 +105,7 @@ impl Templates {
         file.read_to_string(&mut template)?;
         let mut formating = "|".to_string();
         for _ in 0 .. cols.len() {
-            formating.push_str("c|");
+            formating.push_str("r|");
         }
         let mut header = col_names[0].clone();
         for i in 1 .. col_names.len() {

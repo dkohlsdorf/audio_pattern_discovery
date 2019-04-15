@@ -7,6 +7,7 @@ use std::time::Instant;
 
 // TODO: push more data and aggregate statistics
 // TODO: Backtracking and cut sub regions 
+// TODO: Detections at for clusters and for subsequences as log.txt
 
 pub mod aligned_model_merging;
 pub mod alignments;
@@ -25,8 +26,8 @@ fn main() {
 
     let templates = reporting::Templates::from_toml("project/config/Templates.toml".to_string());
     let discover = discovery::Discovery::from_toml("project/config/Discovery.toml".to_string());
-    println!("Template Config  {:?}", templates);
-    println!("Discovery Config {:?}", discover);
+    println!("Template Config:  {:?}", templates);
+    println!("Discovery Config: {:?}", discover);
 
     let wav = audio::AudioData::from_file(String::from("test.wav"), 0);
     let spec = spectrogram::NDSequence::new(
@@ -163,13 +164,19 @@ fn main() {
                     c.to_string(),
                     i.to_string(),
                     s.to_string(),
-                    ll.to_string(),
+                    format!("{:.1}", ll),
                 ]);
             }
         }
     }
 
     println!("==== Generate Report ==== ");
+    let mut clustering_files = vec![];
+    for cluster in 0 .. grouped.len() {
+        let filename = format!("cluster_{}.wav", cluster);
+        clustering_files.push(filename);
+    }
+    let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &vec![]);
     if let Ok(alignments) = alignments {
         if let Ok(table) = templates.table(col_names, cols) {
             if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
