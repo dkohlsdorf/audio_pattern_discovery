@@ -38,12 +38,14 @@ impl ModelMerging {
         let mut stop = vec![0.0; n_states];
         let mut trans = vec![0.0; n_states * n_states];
         let mut states = vec![0.0; n_states * self.hmm.dim];
+        let mut is_segmental = vec![false; n_states]; 
         // copy the states
         for i in 0..self.hmm.n_states {
             let i = self.find_parent(i);
-            let state_i = used_states[&i];
+            let state_i    = used_states[&i];
             start[state_i] = self.hmm.start[i];
-            stop[state_i] = self.hmm.stop[i];
+            stop[state_i]  = self.hmm.stop[i];
+            is_segmental[state_i] = self.hmm.is_segmental[i];
             for j in 0..self.hmm.dim {
                 states[state_i * self.hmm.dim + j] = self.hmm.states[i * self.hmm.dim + j];
             }
@@ -61,6 +63,7 @@ impl ModelMerging {
             start,
             stop,
             states,
+            is_segmental
         };
         hmm.normalize_transitions();
         hmm
@@ -93,7 +96,7 @@ impl ModelMerging {
             if !closed.contains(&(state_i, state_j)) {
                 closed.insert((state_i, state_j));
                 closed.insert((state_j, state_i));
-                self.merge(state_i, state_j);
+                self.merge(state_i, state_j, op.is_from_alignment);
             }
         }
     }
@@ -101,7 +104,7 @@ impl ModelMerging {
     /** 
      * Merge two states. 
      */
-    fn merge(&mut self, state_i: usize, state_j: usize) {
+    fn merge(&mut self, state_i: usize, state_j: usize, from_alignment: bool) {
         if state_i <= state_j {
             // merge j into i
             if state_i != state_j {
@@ -126,11 +129,12 @@ impl ModelMerging {
                         self.hmm.states[state_j * self.hmm.dim + d];
                     self.hmm.states[state_i * self.hmm.dim + d] /= 2.0;
                 }
-                // change parent in union find                
+                // change parent in union find               
+                self.hmm.is_segmental[state_i] = self.hmm.is_segmental[state_i] || from_alignment;
                 self.merge_parent[state_j] = state_i;
             }
         } else {
-            self.merge(state_j, state_i);
+            self.merge(state_j, state_i, from_alignment);
         }
     }
 
@@ -181,8 +185,10 @@ impl ModelMerging {
             }
         }
         let mut merge_parent = vec![];
+        let mut is_segmental = vec![];
         for i in 0..n_states {
             merge_parent.push(i);
+            is_segmental.push(false);
         }
         let hmm = HiddenMarkovModel {
             n_states,
@@ -191,6 +197,7 @@ impl ModelMerging {
             stop,
             trans,
             states,
+            is_segmental
         };
         ModelMerging {
             hmm,
@@ -281,6 +288,7 @@ impl ModelMerging {
                         i: i,
                         j: i - 1,
                         dist: dist2prev_i,
+                        is_from_alignment: false,
                     });
                 }
                 if dist2prev_j < internal_th_j {
@@ -290,6 +298,7 @@ impl ModelMerging {
                         i: j,
                         j: j - 1,
                         dist: dist2prev_j,
+                        is_from_alignment: false,
                     });
                 }
                 // we might merge on each match
@@ -300,6 +309,7 @@ impl ModelMerging {
                         i: i,
                         j: j,
                         dist: distance,
+                        is_from_alignment: true,
                     }),
                     _ => (),
                 };
@@ -316,4 +326,5 @@ pub struct MergeOperation {
     pub i: usize,
     pub j: usize,
     pub dist: f32,
+    pub is_from_alignment: bool
 }

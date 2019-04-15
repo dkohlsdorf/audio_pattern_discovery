@@ -1,3 +1,4 @@
+use crate::discovery::Discovery;
 use crate::numerics::*;
 use crate::spectrogram::NDSequence;
 use std::collections::HashMap;
@@ -27,22 +28,23 @@ impl AlignmentWorkers {
     /**
      * The actual alignment job using n workers
      */
-    pub fn align_all(&mut self, n_workers: usize) {
+    pub fn align_all(&mut self, params: &Discovery) {
         let n = self.data.len();
-        let batch_size = (n / n_workers) + 1;
+        let batch_size = (n / params.alignment_workers) + 1;
         let mut children = vec![];
-        for batch in 0..n_workers {
+        for batch in 0..params.alignment_workers {
             let start = batch * batch_size;
             let stop = usize::min((batch + 1) * batch_size, n);
             let data = self.data.clone();
             let result = self.result.clone();
+            let params = params.clone();
             let th = thread::spawn(move || {
-                for i in start..stop {                
+                for i in start..stop {
                     println!("Thread: {} instance: {}", batch, i);
                     for j in 0..n {
                         if i != j {
                             let len = usize::max(data[i].len(), data[j].len());
-                            let params = AlignmentParams::default(len);
+                            let params = params.alignment_params(len);
                             let mut alignment = Alignment::new();
                             alignment.construct_alignment(&data[i], &data[j], &params);
                             let mut result = result.lock().unwrap();
@@ -110,12 +112,11 @@ pub struct AlignmentNode {
 }
 
 impl AlignmentNode {
-
     pub fn cur(&self) -> (usize, usize) {
         match self.label {
-            AlignmentLabel::Match     => (self.prev_i + 1, self.prev_j + 1),
+            AlignmentLabel::Match => (self.prev_i + 1, self.prev_j + 1),
             AlignmentLabel::Insertion => (self.prev_i + 1, self.prev_j),
-            AlignmentLabel::Deletion  => (self.prev_i, self.prev_j + 1),
+            AlignmentLabel::Deletion => (self.prev_i, self.prev_j + 1),
         }
     }
 
@@ -185,14 +186,19 @@ impl Alignment {
      * Back tracking through alignment
      */
     pub fn path(&self) -> Vec<AlignmentNode> {
-        let mut node = self.sparse[&(self.n, self.m)].clone();
-        let mut path = vec![];
-        while !node.is_start() {
-            path.push(node.clone());
-            node = self.sparse[&(node.prev_i, node.prev_j)].clone();
+        if let Some(node) = self.sparse.get(&(self.n, self.m)) {
+            let mut node = node.clone();
+            let mut path = vec![];
+            while !node.is_start() {
+                path.push(node.clone());
+                node = self.sparse[&(node.prev_i, node.prev_j)].clone();
+            }
+            path.reverse();
+            path
+        } else {            
+            println!("Warning: can not find {} {} ", self.n, self.m);
+            vec![]
         }
-        path.reverse();
-        path
     }
 
     /**
@@ -260,13 +266,17 @@ impl Alignment {
     ) {
         self.n = x.len();
         self.m = y.len();
-        let w = usize::max(params.warping_band, abs(self.n + 1, self.m + 1));
+        let w = usize::max(params.warping_band, abs(self.n, self.m));
+        let mut last_seen = (0, 0);
         for i in 1..self.n + 1 {
-            for j in usize::max(diff(i, w), 1)..usize::min(i + w, self.m + 1) {
+            for j in usize::max(diff(i, w), 1) .. usize::min(i + w, self.m + 1) {
                 let node = self.alignment_score(i, j, &x, &y, params);
                 self.sparse.insert((i, j), node);
+                last_seen = (i, j);
             }
         }
+        if self.n != last_seen.0 && self.m != last_seen.1 {
+            println!("Aligning: {} {} {} {} {}", self.n, self.m, last_seen.0, last_seen.1, w);
+        }
     }
-
 }

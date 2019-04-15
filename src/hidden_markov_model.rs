@@ -1,5 +1,6 @@
 use crate::spectrogram::*;
 use crate::numerics::*;
+
 /**
  * Hidden Markov Model
  */
@@ -11,6 +12,7 @@ pub struct HiddenMarkovModel {
     pub start: Vec<f32>,
     pub stop: Vec<f32>,
     pub states: Vec<f32>,
+    pub is_segmental: Vec<bool>
 }
 
 impl HiddenMarkovModel {
@@ -69,7 +71,7 @@ impl HiddenMarkovModel {
                 max = vite[(len - 1) * n_states + i];
             }
         }
-        max / (n_states * len) as f32
+        max
     }
 
 }

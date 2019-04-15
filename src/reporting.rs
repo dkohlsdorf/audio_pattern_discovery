@@ -96,7 +96,12 @@ impl Templates {
         markov_model: &HiddenMarkovModel,
     ) -> Result<String> {
         let mut n_transitions = 0;
-        let mut s = "digraph {".to_string();
+        let mut s = "digraph {\n".to_string();
+        for i in 0 .. markov_model.n_states {
+            if markov_model.is_segmental[i] {
+                s.push_str(&format!("{} [color=red];\n", i));
+            }
+        }
         for i in 0..markov_model.n_states {
             if markov_model.start[i] > 0.0 {
                 s.push_str(&format!("\tstart -> {};\n", i));

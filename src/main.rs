@@ -5,9 +5,9 @@ extern crate rayon;
 
 use std::time::Instant;
 
-// TODO: Move main -> discovery
-// TODO: UI with html and javascript >> poll piped log file from server
-// TODO: Project management ... save project folders ... move them to a specific location
+// TODO: push more data and aggregate statistics
+// TODO: Backtracking and visualise states
+// TODO: generate html output with download files
 
 pub mod aligned_model_merging;
 pub mod alignments;
@@ -76,7 +76,7 @@ fn main() {
     let n = signals.len();
     let mut workers = alignments::AlignmentWorkers::new(signals);
     let now = Instant::now();
-    workers.align_all(discover.alignment_workers);
+    workers.align_all(&discover);
     println!("Align 8 threads took {}", now.elapsed().as_secs());
 
     let result = workers.result.lock().unwrap();
@@ -98,7 +98,11 @@ fn main() {
     println!("==== Model Merging ==== ");
     let mut sample_distances: Vec<f32> = result
         .iter()
-        .flat_map(|alignment| alignment.path())
+        .enumerate()
+        .flat_map(|(i, alignment)| {
+            println!("Path For Threshold Estimation: {}", i);
+            alignment.path()
+        })
         .map(|node| node.score)
         .collect();
     let merge_threshold = numerics::percentile(&mut sample_distances, discover.merging_percentile);
@@ -113,8 +117,8 @@ fn main() {
             instances.push(interesting[*i].clone());
             for (y, j) in cluster.iter().enumerate() {
                 if y < x {
-                    println!("Path between {} and {}", x, y);
                     let alignment = result[*i * n + *j].path();
+                    println!("Path between {} and {} is : {}", x, y, alignment.len());
                     paths.push((x, y, alignment));
                 }
             }

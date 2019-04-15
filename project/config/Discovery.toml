@@ -9,10 +9,14 @@ vat_percentile = 0.85
 vat_min_len    = 50
 
 # ALIGN AND CLUSTERING
-alignment_workers     = 8 
-clustering_percentile = 0.25
+warping_band_percentage = 0.1
+insertion_penalty       = 1.0
+deletion_penalty        = 1.0
+match_penalty           = 0.5
+alignment_workers       = 8 
+clustering_percentile   = 0.15
 
 # MODEL MERGING 
-merging_percentile = 0.25
-merging_internal_percentile = 0.75
-merging_moving = 5
+merging_percentile          = 0.5
+merging_internal_percentile = 0.9
+merging_moving              = 15

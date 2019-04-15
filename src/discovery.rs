@@ -2,7 +2,9 @@ extern crate toml;
 use std::fs::File;
 use std::io::prelude::*;
 
-#[derive(Deserialize, Debug)]
+use crate::alignments::AlignmentParams;
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct Discovery {
     pub dft_win: usize,
     pub dft_step: usize,
@@ -14,7 +16,11 @@ pub struct Discovery {
     pub clustering_percentile: f32,
     pub merging_percentile: f32,
     pub merging_internal_percentile: f32,
-    pub merging_moving: usize
+    pub merging_moving: usize,
+    pub warping_band_percentage: f32,
+    pub insertion_penalty: f32,
+    pub deletion_penalty: f32,
+    pub match_penalty: f32,
 }
 
 impl Discovery {
@@ -26,6 +32,15 @@ impl Discovery {
             .read_to_string(&mut template_conf);
         let conf: Discovery = toml::from_str(&template_conf).unwrap();
         conf
+    }
+
+    pub fn alignment_params(&self, n_size: usize) -> AlignmentParams {
+        AlignmentParams {
+            warping_band: (self.warping_band_percentage * n_size as f32) as usize,
+            insertion_penalty: self.insertion_penalty,
+            match_penalty: self.match_penalty,
+            deletion_penalty: self.deletion_penalty
+        }
     }
 
 }
