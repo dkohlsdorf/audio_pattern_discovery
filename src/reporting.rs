@@ -45,7 +45,7 @@ impl Templates {
             for slice_id in cluster {
                 let slice = &slices[*slice_id];
                 let audio_id = audio_filename[slice.sequence.audio_id].clone();
-                let rate  = frame_rates[audio_id] as f32;
+                let rate  = frame_rates[slice.sequence.audio_id] as f32;
                 let start = slice.start * sample_step + sample_win;
                 let stop  = slice.stop  * sample_step + sample_win;
                 fp.write_fmt(format_args!("{}\t{}\t{}\t{}\n", audio_id, start as f32 / rate, stop as f32 / rate, i))?;
