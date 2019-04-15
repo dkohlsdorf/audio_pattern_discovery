@@ -8,7 +8,7 @@ use std::time::Instant;
 
 // TODO: push more data and aggregate statistics
 // TODO: Backtracking and cut sub regions
-
+// TODO: Estimate Variance, too
 pub mod aligned_model_merging;
 pub mod alignments;
 pub mod audio;

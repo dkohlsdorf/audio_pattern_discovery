@@ -37,7 +37,7 @@ impl ModelMerging {
         let mut start = vec![0.0; n_states];
         let mut stop = vec![0.0; n_states];
         let mut trans = vec![0.0; n_states * n_states];
-        let mut states = vec![0.0; n_states * self.hmm.dim];
+        let mut states = OnlineStats::new(self.hmm.states.dim, n_states);
         let mut is_segmental = vec![false; n_states]; 
         // copy the states
         for i in 0..self.hmm.n_states {
@@ -46,19 +46,20 @@ impl ModelMerging {
             start[state_i] = self.hmm.start[i];
             stop[state_i]  = self.hmm.stop[i];
             is_segmental[state_i] = self.hmm.is_segmental[i];
-            for j in 0..self.hmm.dim {
-                states[state_i * self.hmm.dim + j] = self.hmm.states[i * self.hmm.dim + j];
+            for j in 0..self.hmm.states.dim {
+                states.means[state_i * self.hmm.states.dim + j]         = self.hmm.states.means[i * self.hmm.states.dim + j];
+                states.sum_of_square[state_i * self.hmm.states.dim + j] = self.hmm.states.sum_of_square[i * self.hmm.states.dim + j];
+                states.variance[state_i * self.hmm.states.dim + j]      = self.hmm.states.variance[i * self.hmm.states.dim + j];
             }
+            states.inserted[state_i]                                = self.hmm.states.inserted[i];
             for j in 0..self.hmm.n_states {
                 let j = self.find_parent(j);
                 let state_j = used_states[&j];
                 trans[state_i * n_states + state_j] = self.hmm.trans[i * self.hmm.n_states + j];
             }
         }
-        let dim = self.hmm.dim;
         let mut hmm = HiddenMarkovModel {
             n_states,
-            dim,
             trans,
             start,
             stop,
@@ -124,11 +125,8 @@ impl ModelMerging {
                 self.hmm.trans[state_i * self.hmm.n_states + state_i] += 1.0;
                 self.hmm.start[state_i] += self.hmm.start[state_j];
                 self.hmm.stop[state_i] += self.hmm.stop[state_j];
-                for d in 0..self.hmm.dim {
-                    self.hmm.states[state_i * self.hmm.dim + d] +=
-                        self.hmm.states[state_j * self.hmm.dim + d];
-                    self.hmm.states[state_i * self.hmm.dim + d] /= 2.0;
-                }
+                self.hmm.states.merge(state_i, state_j);
+
                 // change parent in union find               
                 self.hmm.is_segmental[state_i] = self.hmm.is_segmental[state_i] || from_alignment;
                 self.merge_parent[state_j] = state_i;
@@ -192,11 +190,10 @@ impl ModelMerging {
         }
         let hmm = HiddenMarkovModel {
             n_states,
-            dim,
             start,
             stop,
             trans,
-            states,
+            states: OnlineStats::from_init(dim, n_states, states),
             is_segmental
         };
         ModelMerging {

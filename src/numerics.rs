@@ -145,12 +145,12 @@ pub fn diff(n: usize, m: usize) -> usize {
 }
 
 /**
- * Log likelihood of gaussian with stdev 1.0
+ * Log likelihood of gaussian 
  */
-pub fn ll(x: &[f32], mu: &[f32]) -> f32 {
+pub fn ll(x: &[f32], mu: &[f32], std: &[f32]) -> f32 {
     let mut ll = 0.0;
     for i in 0..x.len() {
-        let normal = Normal::new(mu[i] as f64, 0.25).unwrap();
+        let normal = Normal::new(mu[i] as f64, std[i] as f64).unwrap();
         ll += normal.ln_pdf(x[i] as f64);
     }
     ll as f32
