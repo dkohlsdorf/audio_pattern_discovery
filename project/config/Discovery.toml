@@ -17,6 +17,6 @@ alignment_workers       = 8
 clustering_percentile   = 0.1
 
 # MODEL MERGING 
-merging_percentile          = 0.25
+merging_percentile          = 0.5
 merging_internal_percentile = 0.85
 merging_moving              = 15

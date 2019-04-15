@@ -55,6 +55,8 @@ fn main() {
     let mut file_names = vec![];
     let mut file_names_ceps = vec![];
     for (i, signal) in signals.iter().enumerate() {
+        let rate = raw[interesting[i].sequence.audio_id].spec.sample_rate as f32;
+        println!("Region {} {} {}", interesting[i].sequence.audio_id, (interesting[i].start * discover.dft_step) as f32 / rate, (interesting[i].stop * discover.dft_step) as f32 / rate);
         let file_id = format!("spec_{}", i);
         let file_id_ceps = format!("ceps_{}", i);
         let file_spec = format!("spec_{}.png", i);
@@ -98,7 +100,7 @@ fn main() {
         interesting.len(),
     );
     templates.write_slices_audio(&grouped, &interesting, &raw, discover.dft_step, 10000);
-    let _ = templates.dump_slices("output/detections_clusters.txt".to_string(), &grouped, &interesting, &audio_files, &rates, discover.dft_win, discover.dft_step);
+    let _ = templates.dump_slices("output/detections_clusters.txt".to_string(), &grouped, &interesting, &audio_files, &rates, discover.dft_step);
     println!("==== Model Merging ==== ");
     let mut sample_distances = vec![];
     let n = interesting.len();
