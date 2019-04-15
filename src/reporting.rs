@@ -70,14 +70,14 @@ impl Templates {
         for i in 0 .. n {
             for j in 0 .. n {                
                 if i != j {
-                    let N = results[i * n + j].n;
-                    let M = results[i * n + j].m;
-                    let mut dp = vec![0.0; N * M];
-                    for x in 0 .. N {
-                        for y in 0 .. M {
+                    let len_n = results[i * n + j].n;
+                    let len_m = results[i * n + j].m;
+                    let mut dp = vec![0.0; len_n * len_m];
+                    for x in 0 .. len_n {
+                        for y in 0 .. len_m {
                             if let Some(node) = results[i * n + j].sparse.get(&(x, y)) {
                                 if node.score_on_path.is_finite() {
-                                    dp[x * M + y] = node.score_on_path;
+                                    dp[x * len_m + y] = node.score_on_path;
                                 }
                             }
                         }
@@ -91,7 +91,7 @@ impl Templates {
                         &format!("alignment_{}_{}", i, j), 
                         &format!("Alignment between sequence {} and {}", i, j))?;
                     figures.push(figure);
-                    self.plot(filename, &img, N as u32, M as u32)?;
+                    self.plot(filename, &img, len_n as u32, len_m as u32)?;
                 }                
             }
         }
