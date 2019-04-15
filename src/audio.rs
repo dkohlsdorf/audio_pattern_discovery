@@ -4,6 +4,7 @@ use std::iter::FromIterator;
 /**
  * Simply holds audio data from hound
  */
+#[derive(Clone)]
 pub struct AudioData {
     pub id: usize,
     pub spec: WavSpec,
@@ -15,7 +16,7 @@ impl AudioData {
     /**
      * Read audio data. For multiple channels, we only take the first.
      */
-    pub fn from_file(file: String, id: usize) -> AudioData {
+    pub fn from_file(file: &String, id: usize) -> AudioData {
         let mut reader = WavReader::open(file).unwrap();
         let n_channels = reader.spec().channels as usize;
         let samples = reader

@@ -1,11 +1,11 @@
 extern crate toml;
 
-use crate::hidden_markov_model::*;
+use crate::alignments::*;
 use crate::audio::*;
 use crate::clustering::*;
-use crate::spectrogram::*;
-use crate::alignments::*;
+use crate::hidden_markov_model::*;
 use crate::numerics::*;
+use crate::spectrogram::*;
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -23,10 +23,36 @@ pub struct Templates {
     dendogram: String,
     figure: String,
     table: String,
-    result_html: String
+    result_html: String,
 }
 
-impl Templates {    
+impl Templates {
+
+    /// save all slices to disc
+    pub fn dump_slices(
+        &self,
+        filename: String,
+        clustering: &[Vec<usize>],
+        slices: &[Slice],
+        audio_filename: &[String],
+        frame_rates: &[u32],
+        sample_win: usize,
+        sample_step: usize,
+    ) -> Result<()> {
+        let mut fp = File::create(filename)?;
+        fp.write_fmt(format_args!("audio_file\tstart\tstop\tcluster\n"))?;
+        for (i, cluster) in clustering.iter().enumerate() {
+            for slice_id in cluster {
+                let slice = &slices[*slice_id];
+                let rate  = frame_rates[*slice_id] as f32;
+                let audio_id = audio_filename[slice.sequence.audio_id].clone();
+                let start = slice.start * sample_step + sample_win;
+                let stop  = slice.stop  * sample_step + sample_win;
+                fp.write_fmt(format_args!("{}\t{}\t{}\t{}\n", audio_id, start as f32 / rate, stop as f32 / rate, i))?;
+            }
+        }
+        Ok(())
+    }
 
     /// load from config
     pub fn from_toml(file: String) -> Templates {
@@ -38,19 +64,30 @@ impl Templates {
         templates
     }
 
-    pub fn write_html(&self, out: String, cluster_files: &[String], sub_sequence: &[String]) -> Result<()>{
-        let mut clusters  = String::new();
+    pub fn write_html(
+        &self,
+        out: String,
+        cluster_files: &[String],
+        sub_sequence: &[String],
+    ) -> Result<()> {
+        let mut clusters = String::new();
         let mut sequences = String::new();
         clusters.push_str("<ul>");
         for cluster in cluster_files.iter() {
             let p = format!("{}/{}", "audio", cluster);
-            clusters.push_str(&format!("<li><a href=\"{}\">{}</a></li>\n", &p, &p));
+            clusters.push_str(&format!(
+                "<li><a href=\"{}\" download={}>{}</a></li>\n",
+                &p, &p, &p
+            ));
         }
         clusters.push_str("</ul>");
         sequences.push_str("<ul>");
         for cluster in sub_sequence.iter() {
             let p = format!("{}/{}", "audio", cluster);
-            sequences.push_str(&format!("<li><a href=\"{}\">{}</a></li>\n", &p, &p));
+            sequences.push_str(&format!(
+                "<li><a href=\"{}\" download={}>{}</a></li>\n",
+                &p, &p, &p
+            ));
         }
         sequences.push_str("</ul>");
         let mut file = File::open(&self.result_html)?;
@@ -66,33 +103,37 @@ impl Templates {
 
     /// Write all alignments to disc
     pub fn dump_all_alignments(&self, n: usize, results: &[Alignment]) -> Result<Vec<String>> {
-        let mut figures = vec![];        
-        for i in 0 .. n {
-            for j in 0 .. n {                
+        let mut figures = vec![];
+        for i in 0..n {
+            for j in 0..n {
                 if i != j {
                     let len_n = results[i * n + j].n;
                     let len_m = results[i * n + j].m;
                     let mut dp = vec![0.0; len_n * len_m];
-                    for x in 0 .. len_n {
-                        for y in 0 .. len_m {
+                    for x in 0..len_n {
+                        for y in 0..len_m {
                             if let Some(node) = results[i * n + j].sparse.get(&(x, y)) {
                                 if node.score_on_path.is_finite() {
                                     dp[x * len_m + y] = node.score_on_path;
                                 }
                             }
                         }
-                    }    
+                    }
                     let max_val = max(&dp);
                     let min_val = min(&dp);
-                    let img: Vec<u8>= dp.iter().map(|x| ((x - min_val) / (max_val - min_val) * 255.0) as u8 ).collect();
+                    let img: Vec<u8> = dp
+                        .iter()
+                        .map(|x| ((x - min_val) / (max_val - min_val) * 255.0) as u8)
+                        .collect();
                     let filename = format!("alignment_{}_{}.png", i, j);
                     println!("Dumping log of alignments: {}", filename);
                     let figure = self.figure(
-                        &format!("alignment_{}_{}", i, j), 
-                        &format!("Alignment between sequence {} and {}", i, j))?;
+                        &format!("alignment_{}_{}", i, j),
+                        &format!("Alignment between sequence {} and {}", i, j),
+                    )?;
                     figures.push(figure);
                     self.plot(filename, &img, len_n as u32, len_m as u32)?;
-                }                
+                }
             }
         }
         Ok(figures)
@@ -104,24 +145,24 @@ impl Templates {
         let mut template = String::new();
         file.read_to_string(&mut template)?;
         let mut formating = "|".to_string();
-        for _ in 0 .. cols.len() {
+        for _ in 0..cols.len() {
             formating.push_str("r|");
         }
         let mut header = col_names[0].clone();
-        for i in 1 .. col_names.len() {
+        for i in 1..col_names.len() {
             header.push_str(&format!("& {}", col_names[i]));
         }
         header.push_str("\\\\\n");
         let mut content = String::new();
         for col in cols {
             content.push_str(&col[0].clone());
-            for i in 1 .. col.len() {
+            for i in 1..col.len() {
                 content.push_str(&format!("& {}", &col[i]));
             }
             content.push_str("\\\\\n");
         }
         Ok(template
-            .replace("<format>",  &formating)
+            .replace("<format>", &formating)
             .replace("<heading>", &header)
             .replace("<content>", &content))
     }
@@ -161,7 +202,7 @@ impl Templates {
     ) -> Result<String> {
         let mut n_transitions = 0;
         let mut s = "digraph {\n".to_string();
-        for i in 0 .. markov_model.n_states {
+        for i in 0..markov_model.n_states {
             if markov_model.is_segmental[i] {
                 s.push_str(&format!("{} [color=red];\n", i));
             }
@@ -178,7 +219,12 @@ impl Templates {
             }
             for j in 0..markov_model.n_states {
                 if markov_model.trans[i * markov_model.n_states + j] > 0.0 {
-                    s.push_str(&format!("\t{} -> {} [label=\"{:.2}\"];\n", i, j, markov_model.trans[i * markov_model.n_states + j]));
+                    s.push_str(&format!(
+                        "\t{} -> {} [label=\"{:.2}\"];\n",
+                        i,
+                        j,
+                        markov_model.trans[i * markov_model.n_states + j]
+                    ));
                     n_transitions += 1;
                 }
             }
@@ -188,7 +234,10 @@ impl Templates {
         let filename = format!("{}.dot", filename_without_extension);
         let mut fp = File::create(&format!("{}/{}", self.out_docs, filename))?;
         fp.write_fmt(format_args!("{}", s))?;
-        self.figure(&filename_without_extension, &format!("${}$", &filename_without_extension))
+        self.figure(
+            &filename_without_extension,
+            &format!("${}$", &filename_without_extension),
+        )
     }
 
     /// Dendogram generation from clustering results
@@ -257,7 +306,10 @@ impl Templates {
                 self.img_w, self.img_h, path
             )
         } else {
-            format!("\\includegraphics[width=\\textwidth,height=\\textheight,keepaspectratio]{{{}}}\n", path)
+            format!(
+                "\\includegraphics[width=\\textwidth,height=\\textheight,keepaspectratio]{{{}}}\n",
+                path
+            )
         }
     }
 

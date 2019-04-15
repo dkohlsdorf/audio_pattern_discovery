@@ -3,11 +3,11 @@ extern crate serde_derive;
 extern crate image;
 extern crate rayon;
 
+use rayon::prelude::*;
 use std::time::Instant;
 
 // TODO: push more data and aggregate statistics
-// TODO: Backtracking and cut sub regions 
-// TODO: Detections at for clusters and for subsequences as log.txt
+// TODO: Backtracking and cut sub regions
 
 pub mod aligned_model_merging;
 pub mod alignments;
@@ -23,30 +23,33 @@ fn main() {
     println!("==== Pattern Discovery ====");
     println!("# by Daniel Kohlsdorf     #");
     println!("===========================");
-
     let templates = reporting::Templates::from_toml("project/config/Templates.toml".to_string());
     let discover = discovery::Discovery::from_toml("project/config/Discovery.toml".to_string());
     println!("Template Config:  {:?}", templates);
     println!("Discovery Config: {:?}", discover);
 
-    let wav = audio::AudioData::from_file(String::from("test.wav"), 0);
-    let spec = spectrogram::NDSequence::new(
-        discover.dft_win,
-        discover.dft_step,
-        discover.ceps_filter,
-        &wav,
-    );
-
-    println!("==== Extract Interesting Regions ==== ");
-    let interesting = spec.interesting_ranges(
-        discover.vat_moving,
-        discover.vat_percentile,
-        discover.vat_min_len,
-    );
-    let mut signals = vec![];
-    for (_, slice) in interesting.iter().enumerate() {
-        signals.push(slice.extract());
-    }
+    let audio_files = vec!["test.wav".to_string()];
+    println!("==== Extract Interesting Regions ==== ");    
+    let raw: Vec<audio::AudioData> = audio_files.par_iter().map(|file| {
+        audio::AudioData::from_file(&file, 0)
+    }).collect();
+    let spectrograms: Vec<spectrogram::NDSequence> = raw.par_iter().map(|raw| {
+        spectrogram::NDSequence::new(
+            discover.dft_win,
+            discover.dft_step,
+            discover.ceps_filter,
+            raw
+        )
+    }).collect();
+    let interesting: Vec<spectrogram::Slice> = spectrograms.par_iter().flat_map(|spectrogram| {
+        spectrogram.interesting_ranges(
+            discover.vat_moving,
+            discover.vat_percentile,
+            discover.vat_min_len,
+        )
+    }).collect();
+    let signals: Vec<spectrogram::NDSequence> = interesting.par_iter().map(|slice| slice.extract()).collect();
+    let rates: Vec<u32> = raw.iter().map(|wav| wav.spec.sample_rate).collect();
 
     println!("==== Plot All Regions ==== ");
     let mut file_names = vec![];
@@ -94,8 +97,8 @@ fn main() {
         &clusters,
         interesting.len(),
     );
-    templates.write_slices_audio(&grouped, &interesting, &vec![wav], 128, 10000);
-
+    templates.write_slices_audio(&grouped, &interesting, &raw, discover.dft_step, 10000);
+    let _ = templates.dump_slices("output/detections_clusters.txt".to_string(), &grouped, &interesting, &audio_files, &rates, discover.dft_win, discover.dft_step);
     println!("==== Model Merging ==== ");
     let mut sample_distances = vec![];
     let n = interesting.len();
@@ -172,7 +175,7 @@ fn main() {
 
     println!("==== Generate Report ==== ");
     let mut clustering_files = vec![];
-    for cluster in 0 .. grouped.len() {
+    for cluster in 0..grouped.len() {
         let filename = format!("cluster_{}.wav", cluster);
         clustering_files.push(filename);
     }
@@ -180,16 +183,18 @@ fn main() {
     if let Ok(alignments) = alignments {
         if let Ok(table) = templates.table(col_names, cols) {
             if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
-                if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {                   
-                    let mut latex_parts = vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
+                if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
+                    let mut latex_parts =
+                        vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
                     latex_parts.extend(ceps_tex);
                     latex_parts.push("\\chapter{Clusters With Spectrum Visualisation}".to_string());
-                    latex_parts.extend(spec_tex); 
-                    latex_parts.push("\\chapter{Hidden Markov Models For Each Cluster}".to_string());                   
+                    latex_parts.extend(spec_tex);
+                    latex_parts
+                        .push("\\chapter{Hidden Markov Models For Each Cluster}".to_string());
                     latex_parts.extend(hmm_parts);
-                    latex_parts.push("\\chapter{Log Likelihoods}".to_string());                   
-                    latex_parts.push(table);                    
-                    latex_parts.push("\\chapter{All DTW Alignments}".to_string());                   
+                    latex_parts.push("\\chapter{Log Likelihoods}".to_string());
+                    latex_parts.push(table);
+                    latex_parts.push("\\chapter{All DTW Alignments}".to_string());
                     latex_parts.extend(alignments);
                     let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
                 }
