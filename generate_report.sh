@@ -9,6 +9,7 @@ mkdir output
 mkdir output/img
 mkdir output/docs
 mkdir output/audio
+mkdir output/hmms
 
 # Run
 ./target/release/super_fast_spectrogram $1 > output/log.txt

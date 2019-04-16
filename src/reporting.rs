@@ -1,4 +1,5 @@
 extern crate toml;
+extern crate glob;
 
 use crate::alignments::*;
 use crate::audio::*;
@@ -6,10 +7,10 @@ use crate::clustering::*;
 use crate::hidden_markov_model::*;
 use crate::numerics::*;
 use crate::spectrogram::*;
+use crate::error::*;
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io;
 use std::io::prelude::*;
 
 #[derive(Deserialize, Debug)]
@@ -18,6 +19,7 @@ pub struct Templates {
     img_h: String,
     out_docs: String,
     out_images: String,
+    out_hmms: String,
     out_audio: String,
     document: String,
     dendogram: String,
@@ -27,6 +29,30 @@ pub struct Templates {
 }
 
 impl Templates {
+
+    /// Save all hidden markov models
+    pub fn read_hmms(&self) -> Result<Vec<HiddenMarkovModel>> {
+        let mut hmms: Vec<HiddenMarkovModel> = vec![];
+        for entry in glob::glob(&format!("{}/*.bin", self.out_hmms)).unwrap() {
+            match entry {
+                Ok(path) => {
+                    let file = String::from(path.to_string_lossy());
+                    println!("Reading HMM: {}", file);
+                    hmms.push(HiddenMarkovModel::from_file(&file)?);
+                }
+             Err(e) => println!("HMM Error reading {:?}", e),
+            }
+        }
+        Ok(hmms)
+    }
+
+    /// Save all hidden markov models
+    pub fn dump_hmms(&self, hmms: &[HiddenMarkovModel]) -> Result<()> {
+        for (i, hmm) in hmms.iter().enumerate() {
+            hmm.save_file(&format!("{}/decoder_{}.bin", self.out_hmms, i))?;
+        }
+        Ok(())
+    }
 
     /// save all slices to disc
     pub fn dump_slices(
@@ -351,15 +377,3 @@ impl Templates {
     }
 }
 
-#[derive(Debug)]
-pub enum Error {
-    IO(io::Error),
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
-        Error::IO(e)
-    }
-}
-
-pub type Result<T> = std::result::Result<T, Error>;

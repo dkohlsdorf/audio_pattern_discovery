@@ -1,7 +1,14 @@
 use crate::spectrogram::*;
 use crate::numerics::*;
+extern crate serde_derive;
+extern crate bincode;
 
-#[derive(Debug, Clone)]
+use bincode::{serialize, deserialize};
+use std::fs::File;
+use std::io::prelude::*;
+use crate::error::*;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OnlineStats {
     pub dim: usize,
     pub inserted: Vec<f32>,    
@@ -69,7 +76,7 @@ impl OnlineStats {
 /**
  * Hidden Markov Model
  */
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct HiddenMarkovModel {
     pub n_states: usize,
     pub trans: Vec<f32>,
@@ -80,6 +87,23 @@ pub struct HiddenMarkovModel {
 }
 
 impl HiddenMarkovModel {
+
+    /// load from file
+    pub fn from_file(file: &str) -> Result<HiddenMarkovModel> {
+        let mut fp = File::open(file)?;
+        let mut buf: Vec<u8> = vec![];
+        let _ = fp.read_to_end(&mut buf)?;
+        let decoded: HiddenMarkovModel = deserialize(&buf).unwrap();
+        Ok(decoded)
+    }
+
+    /// save file
+    pub fn save_file(&self, file: &str) -> Result<()> {
+        let mut fp = File::create(file)?;
+        let encoded: Vec<u8> = serialize(&self).unwrap();
+        fp.write_all(&encoded)?;
+        Ok(())
+    }
 
     /**
      * Normalize the transitions

@@ -8,6 +8,7 @@ use rayon::prelude::*;
 use std::env;
 use std::time::Instant;
 
+pub mod error;
 pub mod aligned_model_merging;
 pub mod alignments;
 pub mod audio;
@@ -28,9 +29,14 @@ fn main() {
     println!("Discovery Config: {:?}", discover);
 
     let args: Vec<String> = env::args().collect();
+    let folder = &args[1];
     println!("Args: {:?}", args);
+    learn(folder, &templates, &discover);
+}
+
+fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
     let mut audio_files: Vec<String> = vec![];
-    for entry in glob::glob(&format!("{}/**/*.wav", args[1])).unwrap() {
+    for entry in glob::glob(&format!("{}/**/*.wav", folder)).unwrap() {
         match entry {
             Ok(path) => {
                 println!("File: {}", path.to_string_lossy());
@@ -184,7 +190,9 @@ fn main() {
             hmm_parts.push(img);
         }
     }
-
+    println!("==== Save HMM ====");
+    let _           = templates.dump_hmms(&hmms);    
+    let loaded_hmms = templates.read_hmms().unwrap();
     println!("==== Decoding ==== ");
     let col_names = vec![
         "Cluster".to_string(),
@@ -199,7 +207,7 @@ fn main() {
         for s in cluster {
             let mut max_ll = std::f32::NEG_INFINITY;
             let mut max_hmm = 0;
-            for (i, hmm) in hmms.iter().enumerate() {
+            for (i, hmm) in loaded_hmms.iter().enumerate() {
                 let ll = hmm.viterbi(&interesting[*s].extract());
                 if ll > max_ll {
                     max_hmm = i;
@@ -246,3 +254,4 @@ fn main() {
     }
     println!("==== Done! ==== ");
 }
+
