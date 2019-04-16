@@ -4,13 +4,10 @@ extern crate glob;
 extern crate image;
 extern crate rayon;
 
-// Prints each argument on a separate line
 use rayon::prelude::*;
 use std::env;
 use std::time::Instant;
 
-// TODO: push more data || shell option for wav file directory search
-// TODO: delete states with no self transition since they only serve one state
 pub mod aligned_model_merging;
 pub mod alignments;
 pub mod audio;
@@ -114,7 +111,6 @@ fn main() {
     println!("Align 8 threads took {}", now.elapsed().as_secs());
 
     let result = workers.result.lock().unwrap();
-    //let alignments = templates.dump_all_alignments(interesting.len(), &result);
     let distances: Vec<f32> = result.iter().map(|alignment| alignment.score()).collect();
     let (operations, clusters) = clustering::AgglomerativeClustering::clustering(
         distances,
@@ -231,7 +227,6 @@ fn main() {
         clustering_files.push(filename);
     }
     let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &vec![]);
-    //if let Ok(alignments) = alignments {
     if let Ok(table) = templates.table(col_names, cols) {
         if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
             if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
@@ -245,12 +240,9 @@ fn main() {
                 latex_parts.push("\\chapter{Log Likelihoods}".to_string());
                 latex_parts.push(table);
                 latex_parts.push(format!("Accuracy: ${}$\n", accuracy));
-                //latex_parts.push("\\chapter{All DTW Alignments}".to_string());
-                //latex_parts.extend(alignments);
                 let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
             }
         }
     }
-    //}
     println!("==== Done! ==== ");
 }
