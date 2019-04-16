@@ -16,7 +16,7 @@ impl AudioData {
     /**
      * Read audio data. For multiple channels, we only take the first.
      */
-    pub fn from_file(file: &String, id: usize) -> AudioData {
+    pub fn from_file(file: &str, id: usize) -> AudioData {
         let mut reader = WavReader::open(file).unwrap();
         let n_channels = reader.spec().channels as usize;
         let samples = reader
@@ -30,11 +30,11 @@ impl AudioData {
                 }
             })
             .collect();
-        let mut spec = reader.spec().clone();
+        let mut spec = reader.spec();
         spec.channels = 1;
         AudioData {
             id,
-            spec: spec,
+            spec,
             data: samples,
         }
     }
@@ -53,7 +53,7 @@ impl AudioData {
      * Extract a slice of audio
      */    
     pub fn slice(&self, t_start: usize, t_stop: usize) -> AudioData {
-        AudioData{id: self.id, spec: self.spec.clone(), data: Vec::from_iter(self.data[t_start .. t_stop].iter().cloned())}
+        AudioData{id: self.id, spec: self.spec, data: Vec::from_iter(self.data[t_start .. t_stop].iter().cloned())}
     }
 
     /**

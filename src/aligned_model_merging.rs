@@ -301,10 +301,7 @@ impl ModelMerging {
         // smooth all distances
         let mut moving_avg = vec![];
         for i in 0..distances.len() {
-            let mut avg = 0.0;
-            if i >= k {
-                avg = mean(&distances[i - k..i]);
-            }
+            let avg = if i >= k { mean(&distances[i - k..i]) } else { 0.0 };
             moving_avg.push(avg);
         }
 
@@ -352,7 +349,7 @@ impl ModelMerging {
                     operations.push(MergeOperation {
                         slice_i: x,
                         slice_j: x,
-                        i: i,
+                        i,
                         j: i - 1,
                         dist: dist2prev_i,
                         is_from_alignment: false,
@@ -373,8 +370,8 @@ impl ModelMerging {
                     operations.push(MergeOperation {
                         slice_i: x,
                         slice_j: y,
-                        i: i,
-                        j: j,
+                        i,
+                        j,
                         dist: distance,
                         is_from_alignment: true,
                     });

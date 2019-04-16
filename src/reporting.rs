@@ -148,15 +148,15 @@ impl Templates {
             formating.push_str("r|");
         }
         let mut header = col_names[0].clone();
-        for i in 1..col_names.len() {
-            header.push_str(&format!("& {}", col_names[i]));
+        for c in col_names.iter().skip(1) {
+            header.push_str(&format!("& {}", c));
         }
         header.push_str("\\\\\n");
         let mut content = String::new();
         for col in cols {
             content.push_str(&col[0].clone());
-            for i in 1..col.len() {
-                content.push_str(&format!("& {}", &col[i]));
+            for c in col.iter().skip(1)  {
+                content.push_str(&format!("& {}", c));
             }
             content.push_str("\\\\\n");
         }
@@ -167,7 +167,7 @@ impl Templates {
     }
 
     /// Generate a latex figure
-    fn figure(&self, name: &String, caption: &String) -> Result<String> {
+    fn figure(&self, name: &str, caption: &str) -> Result<String> {
         let mut file = File::open(&self.figure)?;
         let mut template = String::new();
         file.read_to_string(&mut template)?;
@@ -297,7 +297,7 @@ impl Templates {
     }
 
     /// Latex image reference
-    fn image_ref(&self, name: &String, set_dim: bool) -> String {
+    fn image_ref(&self, name: &str, set_dim: bool) -> String {
         let path = format!("../{}/{}", self.out_images, name);
         if set_dim {
             format!(
@@ -313,7 +313,7 @@ impl Templates {
     }
 
     /// Set a tikz image
-    fn tikz(&self, tree: &String, caption: &String) -> Result<String> {
+    fn tikz(&self, tree: &str, caption: &str) -> Result<String> {
         let mut file = File::open(&self.dendogram)?;
         let mut template = String::new();
         file.read_to_string(&mut template)?;

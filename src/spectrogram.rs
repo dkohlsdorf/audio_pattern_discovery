@@ -60,13 +60,13 @@ impl NDSequence {
             dct.process_dct1(&mut convolved, &mut cepstrum);
             n_bins = cepstrum.len();
             let mu_ceps = mean(&cepstrum[4 .. cepstrum.len()]);
-            for i in 4 .. cepstrum.len() {
-                ceps.push(cepstrum[i] - mu_ceps);
+            for c in cepstrum.iter().skip(4) {
+                ceps.push(c - mu_ceps);
             }
             let mu_spec = mean(&result[10 .. result.len()]);
             let mu_std = std(&result[10 .. result.len()], mu_spec);
-            for i in 10 .. result.len() {
-                spectrogram.push( (result[i] - mu_spec)/mu_std );
+            for result in result.iter().skip(10) {
+                spectrogram.push( (result - mu_spec) / mu_std );
             }
         }
         NDSequence {
@@ -74,7 +74,7 @@ impl NDSequence {
             n_bins: n_bins - 4, 
             frames: ceps,
             dft_win: fft_size / 2 - 10, 
-            spectrogram: spectrogram
+            spectrogram
         }
     }
 
@@ -145,10 +145,7 @@ impl NDSequence {
         }
         let mut moving_avg = vec![];
         for i in 0 .. self.len() {
-            let mut avg = 0.0;
-            if i >= k {                
-                avg = mean(&deltas[i - k .. i]);
-            }
+            let avg = if i >= k { mean(&deltas[i - k .. i]) } else { 0.0 };
             moving_avg.push(avg);
         } 
         moving_avg
@@ -163,12 +160,12 @@ impl NDSequence {
         let mut ranges = vec![];
         let mut start = 0;
         let mut recording = true;
-        for i in 0 .. variances.len() {
-            if variances[i] >= th && !recording {
+        for (i, variance) in variances.iter().enumerate() {
+            if *variance >= th && !recording {
                 start = i;
                 recording = true;                
             }
-            if variances[i] < th && recording {
+            if *variance < th && recording {
                 recording = false;
                 if i - start > min_len {
                     ranges.push(Slice::new(start, i, self));

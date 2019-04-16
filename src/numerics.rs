@@ -72,7 +72,7 @@ pub fn z_score(x: f32, mu: f32, sigma: f32) -> f32 {
 pub fn triag(len: usize) -> Vec<f32> {
     let mut triag = vec![0.0; len];
     let center = (len - 1) / 2;
-    for i in 0..center + 1 {
+    for i in 0..=center {
         triag[i] = i as f32 / len as f32;
         triag[len - 1 - i] = i as f32 / len as f32;
     }
@@ -150,8 +150,8 @@ pub fn diff(n: usize, m: usize) -> usize {
 pub fn ll(x: &[f32], mu: &[f32], std: &[f32]) -> f32 {
     let mut ll = 0.0;
     for i in 0..x.len() {
-        let normal = Normal::new(mu[i] as f64, std[i] as f64).unwrap();
-        ll += normal.ln_pdf(x[i] as f64);
+        let normal = Normal::new(f64::from(mu[i]), f64::from(std[i])).unwrap();
+        ll += normal.ln_pdf(f64::from(x[i]));
     }
     ll as f32
 }

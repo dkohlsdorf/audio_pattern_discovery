@@ -273,7 +273,7 @@ impl Alignment {
         self.m = y.len();
         let w = usize::max(params.warping_band, abs(self.n, self.m)) + 2;
         let mut last_seen = (0, 0);
-        for i in 1..self.n + 1 {
+        for i in 1..=self.n {
             for j in usize::max(diff(i, w), 1)..usize::min(i + w, self.m + 1) {
                 let node = self.alignment_score(i, j, &x, &y, params);
                 self.sparse.insert((i, j), node);

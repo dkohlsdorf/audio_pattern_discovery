@@ -68,7 +68,7 @@ fn main() {
         .collect();
     let signals: Vec<spectrogram::NDSequence> = interesting
         .par_iter()
-        .map(|slice| slice.extract())
+        .map(spectrogram::Slice::extract)
         .collect();
     let rates: Vec<u32> = raw.iter().map(|wav| wav.spec.sample_rate).collect();
 
@@ -111,7 +111,7 @@ fn main() {
     println!("Align 8 threads took {}", now.elapsed().as_secs());
 
     let result = workers.result.lock().unwrap();
-    let distances: Vec<f32> = result.iter().map(|alignment| alignment.score()).collect();
+    let distances: Vec<f32> = result.iter().map(alignments::Alignment::score).collect();
     let (operations, clusters) = clustering::AgglomerativeClustering::clustering(
         distances,
         n,
