@@ -12,7 +12,8 @@ pub struct ModelMerging {
     pub hmm: HiddenMarkovModel,
     pub state_map: HashMap<(usize, usize), usize>, // (original_seq, timestep) -> state
     pub merge_parent: Vec<usize>,                  // union find parent structure to manage merges
-}
+    pub deleted: HashSet<usize>                    // save all deleted states
+} 
 
 impl ModelMerging {
     /**
@@ -22,7 +23,6 @@ impl ModelMerging {
         let mut used_states = HashMap::new();
         let mut n_states = 0;
         // find and delete unused tates
-        // let unused: HashSet<usize> = HashSet::new();
         let unused: HashSet<usize> = self.find_unused();
         for s in unused.iter() {
             println!("DELETING {}", s);
@@ -89,8 +89,10 @@ impl ModelMerging {
     pub fn delete(&mut self, i: usize) {
         let mut from_states = HashSet::new();
         let mut to_states = HashSet::new();
+        let i = self.find_parent(i);
         for j in 0..self.hmm.n_states {
-            if i != j {
+            if i != j && !self.deleted.contains(&j) {
+                let j = self.find_parent(j);
                 if self.hmm.trans[j * self.hmm.n_states + i] > 0.0 {
                     from_states.insert(j);
                 }
@@ -116,12 +118,14 @@ impl ModelMerging {
                     self.hmm.trans[i    * self.hmm.n_states + to];
             }
         }
+        self.deleted.insert(i);
     }
 
     /// find states that do not self transition
     pub fn find_unused(&self) -> HashSet<usize> {
         let mut states = HashSet::new();
         for i in 0..self.hmm.n_states {
+            let i = self.find_parent(i);
             if self.hmm.trans[i * self.hmm.n_states + i] == 0.0 {
                 states.insert(i);
             }
@@ -259,6 +263,7 @@ impl ModelMerging {
             hmm,
             state_map,
             merge_parent,
+            deleted: HashSet::new()
         }
     }
 
