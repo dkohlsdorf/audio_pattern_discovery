@@ -22,7 +22,7 @@ We then find slices where something `interesting` happens:
 + 2. Extract long sequences of high variances
 
 The parameters needed for the `interesting` detector are:
-+ percentile of variance o find variance threshold
++ percentile of variance to find variance threshold
 + min size of subsequence
 
 We then cluster all sequences using dynamic time warping window.
@@ -33,7 +33,7 @@ estimated by a percentage.
 
 We cluster using agglomerative clustering with average linkage
 also known as UPGMA[4]. For each alignment we compute we also save the
-alignment path. This information is then used to build hidden markov models.
+alignment path. This information is then used to build hidden markov models [7].
 In each cluster, for each sequence we construct a simple hidden markov model. 
 It is a chain of states, one state for each frame connected only to the next.
 We then get all of the pairwise alignments in the cluster. We can now reference
@@ -90,3 +90,4 @@ folder.
 + [4 UPGMA](https://en.wikipedia.org/wiki/UPGMA)
 + [5 Model Merging](https://papers.nips.cc/paper/669-hidden-markov-model-induction-by-bayesian-model-merging.pdf)
 + [6 Algorithms Sedgewick](https://www.amazon.com/Algorithms-Robert-Sedgewick/dp/032157351X/ref=asc_df_032157351X/?tag=googshopde-21&linkCode=df0&hvadid=310624385211&hvpos=1o1&hvnetw=g&hvrand=16551751797611632310&hvpone=&hvptwo=&hvqmt=&hvdev=c&hvdvcmdl=&hvlocint=&hvlocphy=9044109&hvtargid=pla-432981821009&psc=1&th=1&psc=1&tag=&ref=&adgrpid=64736366074&hvpone=&hvptwo=&hvadid=310624385211&hvpos=1o1&hvnetw=g&hvrand=16551751797611632310&hvqmt=&hvdev=c&hvdvcmdl=&hvlocint=&hvlocphy=9044109&hvtargid=pla-432981821009)
++ [7 HMM](https://www.ece.ucsb.edu/Faculty/Rabiner/ece259/Reprints/tutorial%20on%20hmm%20and%20applications.pdf)
