@@ -2,11 +2,11 @@ use crate::alignments::*;
 use crate::numerics::*;
 use crate::spectrogram::*;
 
-use std::collections::{HashMap, HashSet};
 use crate::hidden_markov_model::*;
+use std::collections::{HashMap, HashSet};
 
 /**
- * Model merging: Build HMM by merging states
+ * Model merging: Build HMM by merging states using alignment information.
  */
 pub struct ModelMerging {
     pub hmm: HiddenMarkovModel,
@@ -18,13 +18,18 @@ impl ModelMerging {
     /**
      * Shrink hidden markov model to smaller compressed version     
      */
-    pub fn shrink(&self) -> HiddenMarkovModel {
+    pub fn shrink(&mut self) -> HiddenMarkovModel {
         let mut used_states = HashMap::new();
         let mut n_states = 0;
+        // find and delete unused tates
+        let unused = self.find_unused();
+        for s in unused.iter() {
+            self.delete(*s);
+        }
         // map each state to a state in the clustered version
         for i in 0..self.merge_parent.len() {
             let state = self.find_parent(i);
-            if !used_states.contains_key(&state) {
+            if !used_states.contains_key(&state) && !unused.contains(&state) {
                 used_states.insert(state, n_states);
                 n_states += 1;
             }
@@ -38,20 +43,23 @@ impl ModelMerging {
         let mut stop = vec![0.0; n_states];
         let mut trans = vec![0.0; n_states * n_states];
         let mut states = OnlineStats::new(self.hmm.states.dim, n_states);
-        let mut is_segmental = vec![false; n_states]; 
+        let mut is_segmental = vec![false; n_states];
         // copy the states
         for i in 0..self.hmm.n_states {
             let i = self.find_parent(i);
-            let state_i    = used_states[&i];
+            let state_i = used_states[&i];
             start[state_i] = self.hmm.start[i];
-            stop[state_i]  = self.hmm.stop[i];
+            stop[state_i] = self.hmm.stop[i];
             is_segmental[state_i] = self.hmm.is_segmental[i];
             for j in 0..self.hmm.states.dim {
-                states.means[state_i * self.hmm.states.dim + j]         = self.hmm.states.means[i * self.hmm.states.dim + j];
-                states.sum_of_square[state_i * self.hmm.states.dim + j] = self.hmm.states.sum_of_square[i * self.hmm.states.dim + j];
-                states.variance[state_i * self.hmm.states.dim + j]      = self.hmm.states.variance[i * self.hmm.states.dim + j];
+                states.means[state_i * self.hmm.states.dim + j] =
+                    self.hmm.states.means[i * self.hmm.states.dim + j];
+                states.sum_of_square[state_i * self.hmm.states.dim + j] =
+                    self.hmm.states.sum_of_square[i * self.hmm.states.dim + j];
+                states.variance[state_i * self.hmm.states.dim + j] =
+                    self.hmm.states.variance[i * self.hmm.states.dim + j];
             }
-            states.inserted[state_i]                                = self.hmm.states.inserted[i];
+            states.inserted[state_i] = self.hmm.states.inserted[i];
             for j in 0..self.hmm.n_states {
                 let j = self.find_parent(j);
                 let state_j = used_states[&j];
@@ -64,14 +72,46 @@ impl ModelMerging {
             start,
             stop,
             states,
-            is_segmental
+            is_segmental,
         };
         hmm.normalize_transitions();
         hmm
     }
 
+    /// delete a state
+    pub fn delete(&mut self, i: usize) {
+        let mut from_states = HashSet::new();
+        let mut to_states = HashSet::new();
+        for j in 0..self.hmm.n_states {
+            if self.hmm.trans[j * self.hmm.n_states + i] > 0.0 {
+                from_states.insert(j);
+            }
+            if self.hmm.trans[i * self.hmm.n_states + j] > 0.0 {
+                to_states.insert(j);
+            }
+        }
+        for from in from_states.iter() {
+            for to in to_states.iter() {
+                self.hmm.trans[from * self.hmm.n_states + to] = 
+                    self.hmm.trans[from * self.hmm.n_states + i] +
+                    self.hmm.trans[i * self.hmm.n_states + to];
+            }
+        }
+    }
+
+    /// find states that do not self transition
+    pub fn find_unused(&self) -> HashSet<usize> {
+        let mut states = HashSet::new();
+        for i in 0..self.hmm.n_states {
+            if self.hmm.trans[i * self.hmm.n_states + i] == 0.0 {
+                states.insert(i);
+            }
+        }
+        states
+    }
+
     /**
-     * Convert paths to merge operations. 
+     * Convert paths to merge operations.
      * A merge happens only for matches within a certain distance.
      * All distances within a sequence are smoothed using a moving average of size k.
      */
@@ -82,8 +122,8 @@ impl ModelMerging {
         perc: f32,
         th: f32,
         k: usize,
-    ) { 
-        let operations = ModelMerging::merges_from_alignments(paths, slices, perc, th , k);
+    ) {
+        let operations = ModelMerging::merges_from_alignments(paths, slices, perc, th, k);
         let mut closed = HashSet::new();
         for op in operations {
             let i = self.state_map[&(op.slice_i, op.i)];
@@ -102,8 +142,8 @@ impl ModelMerging {
         }
     }
 
-    /** 
-     * Merge two states. 
+    /**
+     * Merge two states.
      */
     fn merge(&mut self, state_i: usize, state_j: usize, from_alignment: bool) {
         if state_i <= state_j {
@@ -127,7 +167,7 @@ impl ModelMerging {
                 self.hmm.stop[state_i] += self.hmm.stop[state_j];
                 self.hmm.states.merge(state_i, state_j);
 
-                // change parent in union find               
+                // change parent in union find
                 self.hmm.is_segmental[state_i] = self.hmm.is_segmental[state_i] || from_alignment;
                 self.merge_parent[state_j] = state_i;
             }
@@ -194,7 +234,7 @@ impl ModelMerging {
             stop,
             trans,
             states: OnlineStats::from_init(dim, n_states, states),
-            is_segmental
+            is_segmental,
         };
         ModelMerging {
             hmm,
@@ -215,7 +255,9 @@ impl ModelMerging {
     ) -> Vec<MergeOperation> {
         paths
             .iter()
-            .flat_map(|(i, j, p)| ModelMerging::merges_from_alignment(*i, *j, slices, p, perc, th, k))
+            .flat_map(|(i, j, p)| {
+                ModelMerging::merges_from_alignment(*i, *j, slices, p, perc, th, k)
+            })
             .collect()
     }
 
@@ -246,16 +288,19 @@ impl ModelMerging {
         let slice_j = &slices[y].extract();
 
         let mut dist_i = vec![0.0];
-        for i in 1 .. slice_i.len() {
+        for i in 1..slice_i.len() {
             dist_i.push(euclidean(slice_i.vec(i), slice_i.vec(i - 1)));
         }
         let mut dist_j = vec![0.0];
-        for i in 1 .. slice_j.len() {
+        for i in 1..slice_j.len() {
             dist_j.push(euclidean(slice_j.vec(i), slice_j.vec(i - 1)));
         }
         let internal_th_i = percentile(&mut dist_i.clone(), perc);
         let internal_th_j = percentile(&mut dist_j.clone(), perc);
-        println!("Merging along alignment with threshold: {} {} {}", th, internal_th_i, internal_th_j);
+        println!(
+            "Merging along alignment with threshold: {} {} {}",
+            th, internal_th_i, internal_th_j
+        );
 
         let mut operations = vec![];
         for (t, node) in path.iter().enumerate() {
@@ -274,11 +319,11 @@ impl ModelMerging {
                     std::f32::INFINITY
                 };
                 let dist2prev_j = if j > 0 {
-                   euclidean(slice_j.vec(j), slice_j.vec(j - 1))
+                    euclidean(slice_j.vec(j), slice_j.vec(j - 1))
                 } else {
                     std::f32::INFINITY
-                }; 
-                // Merge along self       
+                };
+                // Merge along self
                 if dist2prev_i < internal_th_i {
                     operations.push(MergeOperation {
                         slice_i: x,
@@ -298,10 +343,10 @@ impl ModelMerging {
                         dist: dist2prev_j,
                         is_from_alignment: false,
                     });
-                }          
+                }
                 // Merge along self
                 if node.score < th {
-                     operations.push(MergeOperation {
+                    operations.push(MergeOperation {
                         slice_i: x,
                         slice_j: y,
                         i: i,
@@ -323,5 +368,5 @@ pub struct MergeOperation {
     pub i: usize,
     pub j: usize,
     pub dist: f32,
-    pub is_from_alignment: bool
+    pub is_from_alignment: bool,
 }

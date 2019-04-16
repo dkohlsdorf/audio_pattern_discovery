@@ -6,8 +6,8 @@ extern crate rayon;
 use rayon::prelude::*;
 use std::time::Instant;
 
-// TODO: push more data
-
+// TODO: push more data || shell option for wav file directory search
+// TODO: delete states with no self transition since they only serve one state
 pub mod aligned_model_merging;
 pub mod alignments;
 pub mod audio;
