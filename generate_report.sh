@@ -29,3 +29,4 @@ done
 pdflatex -output-directory docs/ docs/results.tex 
 pdflatex -output-directory docs/ docs/results.tex 
 cd ..
+open output/results.html
