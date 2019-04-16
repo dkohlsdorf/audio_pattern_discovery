@@ -139,7 +139,7 @@ fn main() {
     for i in 0..n {
         for j in 0..n {
             let path = result[i * n + j].path();
-            if path.len() == 0 {
+            if path.is_empty() {
                 println!(
                     "No Alignment Found {} {} {} {}",
                     i,
@@ -226,7 +226,7 @@ fn main() {
         let filename = format!("cluster_{}.wav", cluster);
         clustering_files.push(filename);
     }
-    let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &vec![]);
+    let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &[]);
     if let Ok(table) = templates.table(col_names, cols) {
         if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
             if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
