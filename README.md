@@ -22,7 +22,7 @@ We then find slices where something `interesting` happens:
 + 2. Extract long sequences of high variances
 
 The parameters needed for the `interesting` detector are:
-+ percentile of variance o find variance threshold
++ percentile of variance to find variance threshold
 + min size of subsequence
 
 We then cluster all sequences using dynamic time warping window.
