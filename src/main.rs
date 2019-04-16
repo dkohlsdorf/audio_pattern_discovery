@@ -1,9 +1,12 @@
 #[macro_use]
 extern crate serde_derive;
+extern crate glob;
 extern crate image;
 extern crate rayon;
 
+// Prints each argument on a separate line
 use rayon::prelude::*;
+use std::env;
 use std::time::Instant;
 
 // TODO: push more data || shell option for wav file directory search
@@ -27,7 +30,19 @@ fn main() {
     println!("Template Config:  {:?}", templates);
     println!("Discovery Config: {:?}", discover);
 
-    let audio_files = vec!["test.wav".to_string()];
+    let args: Vec<String> = env::args().collect();
+    println!("Args: {:?}", args);
+    let mut audio_files: Vec<String> = vec![];
+    for entry in glob::glob(&format!("{}/**/*.wav", args[1])).unwrap() {
+        match entry {
+            Ok(path) => {
+                println!("File: {}", path.to_string_lossy());
+                audio_files.push(String::from(path.to_string_lossy().clone()));
+            }
+            Err(e) => println!("{:?}", e),
+        }
+    }
+
     println!("==== Extract Interesting Regions ==== ");
     let raw: Vec<audio::AudioData> = audio_files
         .par_iter()
@@ -217,26 +232,25 @@ fn main() {
     }
     let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &vec![]);
     //if let Ok(alignments) = alignments {
-        if let Ok(table) = templates.table(col_names, cols) {
-            if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
-                if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
-                    let mut latex_parts =
-                        vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
-                    latex_parts.extend(ceps_tex);
-                    latex_parts.push("\\chapter{Clusters With Spectrum Visualisation}".to_string());
-                    latex_parts.extend(spec_tex);
-                    latex_parts
-                        .push("\\chapter{Hidden Markov Models For Each Cluster}".to_string());
-                    latex_parts.extend(hmm_parts);
-                    latex_parts.push("\\chapter{Log Likelihoods}".to_string());
-                    latex_parts.push(table);
-                    latex_parts.push(format!("Accuracy: ${}$\n", accuracy));
-                    //latex_parts.push("\\chapter{All DTW Alignments}".to_string());
-                    //latex_parts.extend(alignments);
-                    let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
-                }
+    if let Ok(table) = templates.table(col_names, cols) {
+        if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
+            if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
+                let mut latex_parts =
+                    vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
+                latex_parts.extend(ceps_tex);
+                latex_parts.push("\\chapter{Clusters With Spectrum Visualisation}".to_string());
+                latex_parts.extend(spec_tex);
+                latex_parts.push("\\chapter{Hidden Markov Models For Each Cluster}".to_string());
+                latex_parts.extend(hmm_parts);
+                latex_parts.push("\\chapter{Log Likelihoods}".to_string());
+                latex_parts.push(table);
+                latex_parts.push(format!("Accuracy: ${}$\n", accuracy));
+                //latex_parts.push("\\chapter{All DTW Alignments}".to_string());
+                //latex_parts.extend(alignments);
+                let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
             }
         }
+    }
     //}
     println!("==== Done! ==== ");
 }

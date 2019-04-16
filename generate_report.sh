@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Build tool
+cargo build --release
+
 # make project
 rm -rf output
 mkdir output
@@ -7,8 +10,8 @@ mkdir output/img
 mkdir output/docs
 mkdir output/audio
 
-# Run tool
-cargo run > output/log.txt
+# Run
+./target/release/super_fast_spectrogram $1 > output/log.txt
 
 # Generate reports
 cd output
