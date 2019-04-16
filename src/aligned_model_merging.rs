@@ -277,7 +277,8 @@ impl ModelMerging {
                    euclidean(slice_j.vec(j), slice_j.vec(j - 1))
                 } else {
                     std::f32::INFINITY
-                };            
+                }; 
+                // Merge along self       
                 if dist2prev_i < internal_th_i {
                     operations.push(MergeOperation {
                         slice_i: x,
@@ -297,19 +298,18 @@ impl ModelMerging {
                         dist: dist2prev_j,
                         is_from_alignment: false,
                     });
-                }
-                // we might merge on each match
-                match node.label {
-                    AlignmentLabel::Match if distance < th => operations.push(MergeOperation {
+                }          
+                // Merge along self
+                if node.score < th {
+                     operations.push(MergeOperation {
                         slice_i: x,
                         slice_j: y,
                         i: i,
                         j: j,
                         dist: distance,
                         is_from_alignment: true,
-                    }),
-                    _ => (),
-                };
+                    });
+                }
             }
         }
         operations
