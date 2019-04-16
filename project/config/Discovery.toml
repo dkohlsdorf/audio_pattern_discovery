@@ -1,22 +1,22 @@
 # FFT Spec
-dft_win     = 256
-dft_step    = 128
-ceps_filter = 32
+dft_win     = 256                  # DFT window
+dft_step    = 128                  # How many samples to skip
+ceps_filter = 32                   # triangular filters of cepstrum
 
 # VAT
-vat_moving     = 15
-vat_percentile = 0.85
-vat_min_len    = 50
-
-# ALIGN AND CLUSTERING
-warping_band_percentage = 1.0
-insertion_penalty       = 1.0
-deletion_penalty        = 1.0
-match_penalty           = 1.0
-alignment_workers       = 8 
-clustering_percentile   = 0.01
+vat_moving     = 15                # moving average of variance / frame
+vat_percentile = 0.85              # 85% of observations in the audio are noise
+vat_min_len    = 50                # minimum length of a signal is 50 frames
+               
+# ALIGN AND CLUSTERING             
+warping_band_percentage = 1.0      # sakoe shiba band
+insertion_penalty       = 1.0      # [0:1] Weight distance at on insertion path
+deletion_penalty        = 1.0      # [0:1] Weight distance at on deletion path
+match_penalty           = 1.0      # [0:1] Weight distance at on matching path
+alignment_workers       = 8        # 8 threads / worker
+clustering_percentile   = 0.01     # 1% of alignments can be merged
 
 # MODEL MERGING 
-merging_percentile          = 0.25
-merging_internal_percentile = 0.95
+merging_percentile          = 0.25 # 25% of alignments in a cluster can be merged
+merging_internal_percentile = 0.95 # 95% of the frames in a sequence can be merged
 merging_moving              = 1

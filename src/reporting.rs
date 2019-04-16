@@ -211,10 +211,10 @@ impl Templates {
 
         for i in 0..markov_model.n_states {
             if markov_model.start[i] > 0.0 {
-                s.push_str(&format!("\tstart -> {};\n", i));
+                s.push_str(&format!("\tstart -> {} [label=\"{:.2}\"];\n",  i, markov_model.start[i]));
             }
             if markov_model.stop[i] > 0.0 {
-                s.push_str(&format!("\t{} -> stop;\n", i));
+                s.push_str(&format!("\t{} -> stop [label=\"{:.2}\"];\n", i, markov_model.stop[i]));
             }
             for j in 0..markov_model.n_states {
                 if markov_model.trans[i * markov_model.n_states + j] > 0.0 {

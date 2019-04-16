@@ -22,8 +22,10 @@ impl ModelMerging {
         let mut used_states = HashMap::new();
         let mut n_states = 0;
         // find and delete unused tates
-        let unused = self.find_unused();
+        // let unused: HashSet<usize> = HashSet::new();
+        let unused: HashSet<usize> = self.find_unused();
         for s in unused.iter() {
+            println!("DELETING {}", s);
             self.delete(*s);
         }
         // map each state to a state in the clustered version
@@ -47,23 +49,28 @@ impl ModelMerging {
         // copy the states
         for i in 0..self.hmm.n_states {
             let i = self.find_parent(i);
-            let state_i = used_states[&i];
-            start[state_i] = self.hmm.start[i];
-            stop[state_i] = self.hmm.stop[i];
-            is_segmental[state_i] = self.hmm.is_segmental[i];
-            for j in 0..self.hmm.states.dim {
-                states.means[state_i * self.hmm.states.dim + j] =
-                    self.hmm.states.means[i * self.hmm.states.dim + j];
-                states.sum_of_square[state_i * self.hmm.states.dim + j] =
-                    self.hmm.states.sum_of_square[i * self.hmm.states.dim + j];
-                states.variance[state_i * self.hmm.states.dim + j] =
-                    self.hmm.states.variance[i * self.hmm.states.dim + j];
-            }
-            states.inserted[state_i] = self.hmm.states.inserted[i];
-            for j in 0..self.hmm.n_states {
-                let j = self.find_parent(j);
-                let state_j = used_states[&j];
-                trans[state_i * n_states + state_j] = self.hmm.trans[i * self.hmm.n_states + j];
+            if !unused.contains(&i) {
+                let state_i = used_states[&i];
+                start[state_i] = self.hmm.start[i];
+                stop[state_i]  = self.hmm.stop[i];
+                is_segmental[state_i] = self.hmm.is_segmental[i];
+                for j in 0..self.hmm.states.dim {
+                    states.means[state_i * self.hmm.states.dim + j] =
+                        self.hmm.states.means[i * self.hmm.states.dim + j];
+                    states.sum_of_square[state_i * self.hmm.states.dim + j] =
+                        self.hmm.states.sum_of_square[i * self.hmm.states.dim + j];
+                    states.variance[state_i * self.hmm.states.dim + j] =
+                        self.hmm.states.variance[i * self.hmm.states.dim + j];
+                }
+                states.inserted[state_i] = self.hmm.states.inserted[i];
+                for j in 0..self.hmm.n_states {
+                    let j = self.find_parent(j);
+                    if !unused.contains(&j) {
+                        let state_j = used_states[&j];
+                        trans[state_i * n_states + state_j] =
+                            self.hmm.trans[i * self.hmm.n_states + j];
+                    }
+                }
             }
         }
         let mut hmm = HiddenMarkovModel {
@@ -83,18 +90,30 @@ impl ModelMerging {
         let mut from_states = HashSet::new();
         let mut to_states = HashSet::new();
         for j in 0..self.hmm.n_states {
-            if self.hmm.trans[j * self.hmm.n_states + i] > 0.0 {
-                from_states.insert(j);
+            if i != j {
+                if self.hmm.trans[j * self.hmm.n_states + i] > 0.0 {
+                    from_states.insert(j);
+                }
+                if self.hmm.trans[i * self.hmm.n_states + j] > 0.0 {
+                    to_states.insert(j);
+                }
             }
-            if self.hmm.trans[i * self.hmm.n_states + j] > 0.0 {
-                to_states.insert(j);
+        }
+        for from in from_states.iter() {
+            if self.hmm.stop[i] > 0.0 {
+                self.hmm.stop[*from] += self.hmm.stop[i];
+            }
+        }
+        for to in to_states.iter() {
+            if self.hmm.start[i] > 0.0 {
+                self.hmm.start[*to] += self.hmm.start[i];
             }
         }
         for from in from_states.iter() {
             for to in to_states.iter() {
                 self.hmm.trans[from * self.hmm.n_states + to] = 
-                    self.hmm.trans[from * self.hmm.n_states + i] +
-                    self.hmm.trans[i * self.hmm.n_states + to];
+                    self.hmm.trans[from * self.hmm.n_states + i] + 
+                    self.hmm.trans[i    * self.hmm.n_states + to];
             }
         }
     }
