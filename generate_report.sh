@@ -4,17 +4,22 @@
 cargo build --release
 
 # make project
+if [ "$1" == "false" ]
+then
 rm -rf output
 mkdir output
 mkdir output/img
 mkdir output/docs
 mkdir output/audio
 mkdir output/hmms
+fi;
 
 # Run
-./target/release/super_fast_spectrogram $1 > output/log.txt
+./target/release/super_fast_spectrogram $1 $2 > output/log.txt
 
 # Generate reports
+if [ "$1" == "false" ]
+then
 cd output
 for i in docs/*.dot
 do
@@ -30,3 +35,4 @@ done
 pdflatex -output-directory docs/ docs/results.tex 
 pdflatex -output-directory docs/ docs/results.tex 
 cd ..
+fi

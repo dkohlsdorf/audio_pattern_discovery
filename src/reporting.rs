@@ -26,6 +26,7 @@ pub struct Templates {
     figure: String,
     table: String,
     result_html: String,
+    result_html_decoded: String
 }
 
 impl Templates {
@@ -94,6 +95,7 @@ impl Templates {
         out: String,
         cluster_files: &[String],
         sub_sequence: &[String],
+        decode_only: bool
     ) -> Result<()> {
         let mut clusters = String::new();
         let mut sequences = String::new();
@@ -114,8 +116,8 @@ impl Templates {
                 &p, &p, &p
             ));
         }
-        sequences.push_str("</ul>");
-        let mut file = File::open(&self.result_html)?;
+        sequences.push_str("</ul>");    
+        let mut file = if decode_only { File::open(&self.result_html_decoded)? } else { File::open(&self.result_html)? };
         let mut template = String::new();
         file.read_to_string(&mut template)?;
         let filled = template
@@ -123,6 +125,7 @@ impl Templates {
             .replace("[SUB_WAV]", &sequences);
         let mut output = File::create(out)?;
         output.write_fmt(format_args!("{}", filled))?;
+        
         Ok(())
     }
 

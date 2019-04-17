@@ -58,10 +58,9 @@ the data. The output of the tool is summarised in a result html page.
 In order to generate the report and all the clusters run:
 
 ```
-./generate_report.sh FOLDER
+./generate_report.sh APPLY_ONLY FOLDER
 ```
-
-The folder should contain wav files, it will be searched recursively.
+APPLY_ONLY is true or false. The folder should contain wav files, it will be searched recursively.
 In order to configure the program use the file in `project/config`.
 In order to change the latex templates use the `project/templates` 
 folder.

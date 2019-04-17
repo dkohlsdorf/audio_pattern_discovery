@@ -6,14 +6,15 @@ extern crate rayon;
 
 use rayon::prelude::*;
 use std::env;
+use std::str::FromStr;
 use std::time::Instant;
 
-pub mod error;
 pub mod aligned_model_merging;
 pub mod alignments;
 pub mod audio;
 pub mod clustering;
 pub mod discovery;
+pub mod error;
 pub mod hidden_markov_model;
 pub mod numerics;
 pub mod reporting;
@@ -29,23 +30,119 @@ fn main() {
     println!("Discovery Config: {:?}", discover);
 
     let args: Vec<String> = env::args().collect();
-    let folder = &args[1];
+    let apply_only: bool = FromStr::from_str(&args[1]).unwrap();
+    let folder = &args[2];
     println!("Args: {:?}", args);
-    learn(folder, &templates, &discover);
+    if apply_only {
+        decode(folder, &templates, &discover);
+    } else {
+        learn(folder, &templates, &discover);
+    }
 }
 
-fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
+fn all_files(folder: &str) -> Vec<String> {
     let mut audio_files: Vec<String> = vec![];
     for entry in glob::glob(&format!("{}/**/*.wav", folder)).unwrap() {
         match entry {
             Ok(path) => {
-                println!("File: {}", path.to_string_lossy());
-                audio_files.push(String::from(path.to_string_lossy().clone()));
+                if !path.to_string_lossy().contains("cluster") {
+                    println!("File: {}", path.to_string_lossy());
+                    audio_files.push(String::from(path.to_string_lossy().clone()));
+                }
             }
             Err(e) => println!("{:?}", e),
         }
     }
+    audio_files
+}
 
+fn decode(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
+    let audio_files: Vec<String> = all_files(folder);
+    println!("==== Extract Interesting Regions ==== ");
+    let raw: Vec<audio::AudioData> = audio_files
+        .par_iter()
+        .map(|file| audio::AudioData::from_file(&file, 0))
+        .collect();
+    let spectrograms: Vec<spectrogram::NDSequence> = raw
+        .par_iter()
+        .map(|raw| {
+            spectrogram::NDSequence::new(
+                discover.dft_win,
+                discover.dft_step,
+                discover.ceps_filter,
+                raw,
+            )
+        })
+        .collect();
+    let interesting: Vec<spectrogram::Slice> = spectrograms
+        .par_iter()
+        .flat_map(|spectrogram| {
+            spectrogram.interesting_ranges(
+                discover.vat_moving,
+                discover.vat_percentile,
+                discover.vat_min_len,
+            )
+        })
+        .collect();
+    let signals: Vec<spectrogram::NDSequence> = interesting
+        .par_iter()
+        .map(spectrogram::Slice::extract)
+        .collect();
+    let rates: Vec<u32> = raw.iter().map(|wav| wav.spec.sample_rate).collect();
+    println!("==== Load HMM ====");
+    let loaded_hmms = templates.read_hmms().unwrap();
+    let mut grouped: Vec<Vec<usize>> = vec![];
+    for _i in 0..loaded_hmms.len() {
+        grouped.push(vec![]);
+    }
+    for (s, signal) in signals.iter().enumerate() {
+        let mut max_ll = std::f32::NEG_INFINITY;
+        let mut max_hmm = 0;
+        for (i, hmm) in loaded_hmms.iter().enumerate() {
+            let ll = hmm.viterbi(signal);
+            if ll > max_ll {
+                max_hmm = i;
+                max_ll = ll;
+            }
+        }
+        let rate = rates[interesting[s].sequence.audio_id];
+        println!(
+            "{} {} {} {} {}",
+            audio_files[interesting[s].sequence.audio_id],
+            (interesting[s].start * discover.dft_step) as f32 / rate as f32,
+            (interesting[s].stop  * discover.dft_step)  as f32 / rate as f32,
+            max_hmm,
+            max_ll
+        );
+        grouped[max_hmm].push(s);
+    }
+
+    println!("==== Generate Report ==== ");
+    let _ = templates.dump_slices(
+        "output/detections_clusters.txt".to_string(),
+        &grouped,
+        &interesting,
+        &audio_files,
+        &rates,
+        discover.dft_step,
+    );
+    templates.write_slices_audio(&grouped, &interesting, &raw, discover.dft_step, 10000);
+    let mut clustering_files = vec![];
+    for cluster in 0..grouped.len() {
+        let filename = format!("cluster_{}.wav", cluster);
+        clustering_files.push(filename);
+    }
+    let _ = templates.write_html(
+        "output/result.html".to_string(),
+        &clustering_files,
+        &[],
+        true,
+    );
+    println!("==== Done! ==== ");
+}
+
+fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
+    let audio_files: Vec<String> = all_files(folder);
     println!("==== Extract Interesting Regions ==== ");
     let raw: Vec<audio::AudioData> = audio_files
         .par_iter()
@@ -191,7 +288,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         }
     }
     println!("==== Save HMM ====");
-    let _           = templates.dump_hmms(&hmms);    
+    let _ = templates.dump_hmms(&hmms);
     let loaded_hmms = templates.read_hmms().unwrap();
     println!("==== Decoding ==== ");
     let col_names = vec![
@@ -234,7 +331,12 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         let filename = format!("cluster_{}.wav", cluster);
         clustering_files.push(filename);
     }
-    let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &[]);
+    let _ = templates.write_html(
+        "output/result.html".to_string(),
+        &clustering_files,
+        &[],
+        false,
+    );
     if let Ok(table) = templates.table(col_names, cols) {
         if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
             if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
@@ -254,4 +356,3 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
     }
     println!("==== Done! ==== ");
 }
-
