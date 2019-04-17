@@ -60,7 +60,7 @@ In order to generate the report and all the clusters run:
 ```
 ./generate_report.sh APPLY_ONLY FOLDER
 ```
-APPLY_ONLY is true or false. The folder should contain wav files, it will be searched recursively.
+APPLY_ONLY is true or false and determins if we load existing HMMs and decode the data or if we start a new clustering round. The folder should contain wav files, it will be searched recursively.
 In order to configure the program use the file in `project/config`.
 In order to change the latex templates use the `project/templates` 
 folder.
