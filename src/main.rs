@@ -19,11 +19,18 @@ pub mod hidden_markov_model;
 pub mod numerics;
 pub mod reporting;
 pub mod spectrogram;
+pub mod neural;
 
 fn main() {
     println!("==== Pattern Discovery ====");
     println!("# by Daniel Kohlsdorf     #");
     println!("===========================");
+
+    let x = numerics::Mat{ flat: vec![0.0; 6], cols: 3 };
+    let mut nn = neural::AutoEncoder::new(3, 2);
+    nn.take_step(&x, 0.01);
+
+    /*
     let templates = reporting::Templates::from_toml("project/config/Templates.toml".to_string());
     let discover = discovery::Discovery::from_toml("project/config/Discovery.toml".to_string());
     println!("Template Config:  {:?}", templates);
@@ -38,6 +45,7 @@ fn main() {
     } else {
         learn(folder, &templates, &discover);
     }
+    */
 }
 
 fn all_files(folder: &str) -> Vec<String> {

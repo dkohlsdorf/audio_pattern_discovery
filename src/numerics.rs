@@ -145,7 +145,7 @@ pub fn diff(n: usize, m: usize) -> usize {
 }
 
 /**
- * Log likelihood of gaussian 
+ * Log likelihood of gaussian
  */
 pub fn ll(x: &[f32], mu: &[f32], std: &[f32]) -> f32 {
     let mut ll = 0.0;
@@ -154,4 +154,69 @@ pub fn ll(x: &[f32], mu: &[f32], std: &[f32]) -> f32 {
         ll += normal.ln_pdf(f64::from(x[i]));
     }
     ll as f32
+}
+
+
+/// A flat matrix
+pub struct Mat {
+    pub flat: Vec<f32>,
+    pub cols: usize,
+}
+
+impl Mat {
+
+    pub fn rows(&self) -> usize {
+        self.flat.len() / self.cols
+    }
+
+    /// transposed matrix as new matrix
+    pub fn transpose(&self) -> Mat {
+        let rows = self.rows();
+        let cols = self.cols;
+        let mut transposed = vec![0.0; rows * cols];
+        for i in 0..rows {
+            for j in 0..cols {
+                transposed[j * rows + i] = self.flat[i * cols + j];
+            }
+        }
+        Mat{flat: transposed, cols: rows}
+    }
+
+    /// sigmoid of matrix as new matrix
+    pub fn sigmoid(&self) -> Mat {
+        Mat {
+            cols: self.cols,
+            flat: self.flat.iter().map(|x| {
+                1.0 / (1.0 + f32::exp(-x))
+            }).collect()        
+        }
+    }
+
+    /// add a column vector to all columns
+    pub fn add_col(&self, x: &Mat) -> Mat {
+        let mut flat = self.flat.clone();
+        for i in 0 .. self.rows() {
+            for j in 0 .. self.cols {
+                flat[i * self.cols + j] += x.flat[j];
+            }
+        }
+        Mat {flat, cols: self.cols}
+    }
+
+    /// matrix multiplication
+    pub fn mul(&self, other: &Mat) -> Mat {
+        assert!(self.cols == other.rows());
+        let n = self.rows();
+        let d = self.cols;
+        let cols = other.cols;
+        let mut flat = vec![0.0; n * cols];
+        for i in 0 .. n {
+            for j in 0 .. cols {
+                for k in 0 .. d {
+                    flat[i * cols + j] += self.flat[i * d + k] * other.flat[k * cols + j];
+                }
+            }
+        }
+        Mat {flat, cols}
+    }
 }

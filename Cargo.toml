@@ -1,5 +1,5 @@
 [package]
-name = "super_fast_spectrogram"
+name    = "super_fast_spectrogram"
 version = "0.1.0"
 authors = ["Daniel Kohlsdorf <daniel.kohlsdorf@xing.com>"]
 edition = "2018"
