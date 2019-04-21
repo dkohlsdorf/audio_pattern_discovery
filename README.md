@@ -79,6 +79,7 @@ folder.
 + `hidden_markov_model.rs` Hidden Markov Model 
 + `numerics.rs` All numerics methods
 + `spectrogram.rs` Implements spectrogram and slicing
++ `neural` Implements a one layer autoencoder
 
 ## Requirements
 + Latex
