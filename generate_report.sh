@@ -12,6 +12,7 @@ mkdir output/img
 mkdir output/docs
 mkdir output/audio
 mkdir output/hmms
+mkdir output/encoder
 fi;
 
 # Run

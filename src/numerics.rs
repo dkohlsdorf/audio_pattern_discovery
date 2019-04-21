@@ -1,5 +1,11 @@
 use statrs::distribution::{Continuous, Normal};
 
+extern crate rand;
+extern crate serde_derive;
+extern crate bincode;
+
+use rand::Rng;
+
 /**
  * Comput sample mean of a slice
  */
@@ -158,17 +164,41 @@ pub fn ll(x: &[f32], mu: &[f32], std: &[f32]) -> f32 {
 
 
 /// A flat matrix
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Mat {
     pub flat: Vec<f32>,
     pub cols: usize,
 }
 
+/// All functions should behave in an immutable manner
 impl Mat {
 
+    pub fn seeded(rows: usize, cols: usize) -> Mat {
+        let mut rng = rand::thread_rng();
+        let mut flat = vec![];
+        for _i in 0  .. rows * cols {
+            let uniform = (rng.gen_range(0.0, 1.0) - 0.5) / cols as f32;
+            flat.push(uniform);
+        }
+        Mat {flat, cols: cols}
+    }
+    
     pub fn rows(&self) -> usize {
         self.flat.len() / self.cols
     }
 
+    pub fn norm(&self) -> Mat {
+        let min_val = min(&self.flat);
+        let max_val = max(&self.flat);
+        let scaler = max_val - min_val;
+        if min_val != max_val {
+            let flat = self.flat.iter().map (|x| (x - min_val) / scaler).collect();
+            Mat {flat, cols: self.cols}
+        } else {
+            Mat {flat: self.flat.clone(), cols: self.cols}
+        }
+    }
+    
     /// transposed matrix as new matrix
     pub fn transpose(&self) -> Mat {
         let rows = self.rows();
@@ -182,7 +212,7 @@ impl Mat {
         Mat{flat: transposed, cols: rows}
     }
 
-    /// sigmoid of matrix as new matrix
+    /// relu of matrix as new matrix
     pub fn sigmoid(&self) -> Mat {
         Mat {
             cols: self.cols,
@@ -190,6 +220,16 @@ impl Mat {
                 1.0 / (1.0 + f32::exp(-x))
             }).collect()        
         }
+    }
+
+    /// Compute derivative as new matrix
+    pub fn delta_sigmoid(&self) -> Mat {
+        Mat {
+            cols: self.cols,
+            flat: self.flat.iter().map(|x| {
+                x * (1.0 - x)
+            }).collect()        
+        }        
     }
 
     /// add a column vector to all columns
@@ -203,6 +243,54 @@ impl Mat {
         Mat {flat, cols: self.cols}
     }
 
+
+    /// multiplication, element by element
+    pub fn mul_ebe(&self, other: &Mat) -> Mat {
+        let mut flat = self.flat.clone();
+        for i in 0 .. flat.len() {
+            flat[i] *= other.flat[i];
+        }
+        Mat {
+            cols: self.cols,
+            flat
+        }
+    }
+
+    /// addition, element by element
+    pub fn add_ebe(&self, other: &Mat) -> Mat {
+        let mut flat = self.flat.clone();
+        for i in 0 .. flat.len() {
+            flat[i] += other.flat[i];
+        }
+        Mat {
+            cols: self.cols,
+            flat
+        }        
+    }
+
+    /// addition, element by element
+    pub fn sub_ebe(&self, other: &Mat) -> Mat{
+        let mut flat = self.flat.clone();
+        for i in 0 .. flat.len() {
+            flat[i] -= other.flat[i];
+        }
+        Mat {
+            cols: self.cols,
+            flat
+        }        
+    }
+
+
+    /// scale a matrix
+    pub fn scale(&self, scaler: f32) -> Mat {
+        Mat {
+            cols: self.cols,
+            flat: self.flat.iter().map(|a| {
+                a * scaler
+            }).collect()        
+        }
+    }
+    
     /// matrix multiplication
     pub fn mul(&self, other: &Mat) -> Mat {
         assert!(self.cols == other.rows());

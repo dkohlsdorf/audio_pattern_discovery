@@ -5,6 +5,9 @@ use rustdct::DCTplanner;
 
 use crate::numerics::*;
 use crate::audio::*;
+use crate::neural::*;
+
+// TODO save ceps
 
 /**
  * A flat Spectrogram / Cepstrum
@@ -29,7 +32,7 @@ impl NDSequence {
      * Each resulting frame is normalised to standard score.
      */
     pub fn new(fft_size: usize, fft_step: usize, filter_size: usize, raw_audio: &AudioData) -> NDSequence {
-		let hamming = hamming(fft_size);
+	let hamming = hamming(fft_size);
         let triag   = triag(fft_size / filter_size); 
         let samples: Vec<Complex<f32>> = raw_audio
             .data
@@ -58,22 +61,34 @@ impl NDSequence {
             let mut cepstrum: Vec<f32>  = vec![0f32; convolved.len()];
             let dct = planner_dct.plan_dct1(convolved.len());  
             dct.process_dct1(&mut convolved, &mut cepstrum);
-            n_bins = cepstrum.len();
             let mu_ceps = mean(&cepstrum[4 .. cepstrum.len()]);
-            for c in cepstrum.iter().skip(4) {
-                ceps.push(c - mu_ceps);
+            let final_ceps: Vec<f32> = cepstrum.iter().skip(4).map(|c| c - mu_ceps).collect();            
+
+            /*let neural = match nn {
+                Some(nn) => nn.predict(&Mat{flat: final_ceps.clone(), cols: cepstrum.len() - 4}).flat,
+                _ => final_ceps
+            };*/
+            n_bins = cepstrum.len() - 4;
+
+               /*match nn {
+                Some(nn) => nn.n_latent(),
+                _ => cepstrum.len() - 4
+            };*/
+            for c in final_ceps.iter() {
+                ceps.push(*c);
             }
-            let mu_spec = mean(&result[10 .. result.len()]);
-            let mu_std = std(&result[10 .. result.len()], mu_spec);
+
+            let mu_spec    = mean(&result[10 .. result.len()]);
+            let std_spec   = std(&result[10 .. result.len()], mu_spec);
             for result in result.iter().skip(10) {
-                spectrogram.push( (result - mu_spec) / mu_std );
+                spectrogram.push( (result - mu_spec) / std_spec);
             }
         }
         NDSequence {
             audio_id: raw_audio.id,
-            n_bins: n_bins - 4, 
+            n_bins: n_bins, 
             frames: ceps,
-            dft_win: fft_size / 2 - 10, 
+            dft_win: fft_size / 2 - 10,             
             spectrogram
         }
     }
@@ -85,6 +100,21 @@ impl NDSequence {
         &self.frames[t * self.n_bins .. (t + 1) * self.n_bins]
     }
 
+    pub fn encoded(&self, nn: &AutoEncoder) -> NDSequence {
+        let mut flat = vec![];
+        for i in 0 .. self.len() {
+            flat.extend(nn.predict(&Mat{flat: self.vec(i).to_vec(), cols: self.n_bins}).flat);
+        }
+        NDSequence {
+            audio_id: self.audio_id,
+            n_bins: nn.n_latent(), 
+            frames: flat,
+            dft_win: self.dft_win,             
+            spectrogram: self.spectrogram.clone()
+        }
+
+    }
+    
     /**
      * Cepstrum as bytes of gray scale image.
      * The values are min-max normalized.

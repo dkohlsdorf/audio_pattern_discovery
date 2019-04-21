@@ -21,6 +21,9 @@ pub struct Discovery {
     pub insertion_penalty: f32,
     pub deletion_penalty: f32,
     pub match_penalty: f32,
+    pub auto_encoder: usize,
+    pub learning_rate: f32,
+    pub epochs: usize
 }
 
 impl Discovery {

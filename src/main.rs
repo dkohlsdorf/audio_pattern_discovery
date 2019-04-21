@@ -3,7 +3,9 @@ extern crate serde_derive;
 extern crate glob;
 extern crate image;
 extern crate rayon;
+extern crate rand;
 
+use rand::{thread_rng, Rng};
 use rayon::prelude::*;
 use std::env;
 use std::str::FromStr;
@@ -26,11 +28,6 @@ fn main() {
     println!("# by Daniel Kohlsdorf     #");
     println!("===========================");
 
-    let x = numerics::Mat{ flat: vec![0.0; 6], cols: 3 };
-    let mut nn = neural::AutoEncoder::new(3, 2);
-    nn.take_step(&x, 0.01);
-
-    /*
     let templates = reporting::Templates::from_toml("project/config/Templates.toml".to_string());
     let discover = discovery::Discovery::from_toml("project/config/Discovery.toml".to_string());
     println!("Template Config:  {:?}", templates);
@@ -39,13 +36,14 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let apply_only: bool = FromStr::from_str(&args[1]).unwrap();
     let folder = &args[2];
+
     println!("Args: {:?}", args);
     if apply_only {
         decode(folder, &templates, &discover);
     } else {
+        auto_encoder(folder, &templates, &discover);
         learn(folder, &templates, &discover);
     }
-    */
 }
 
 fn all_files(folder: &str) -> Vec<String> {
@@ -64,7 +62,7 @@ fn all_files(folder: &str) -> Vec<String> {
     audio_files
 }
 
-fn decode(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
+fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
     let audio_files: Vec<String> = all_files(folder);
     println!("==== Extract Interesting Regions ==== ");
     let raw: Vec<audio::AudioData> = audio_files
@@ -78,7 +76,7 @@ fn decode(folder: &str, templates: &reporting::Templates, discover: &discovery::
                 discover.dft_win,
                 discover.dft_step,
                 discover.ceps_filter,
-                raw,
+                raw
             )
         })
         .collect();
@@ -96,6 +94,67 @@ fn decode(folder: &str, templates: &reporting::Templates, discover: &discovery::
         .par_iter()
         .map(spectrogram::Slice::extract)
         .collect();
+    println!("==== Learn Auto Encoder ==== ");
+    let mut nn = neural::AutoEncoder::new(signals[0].n_bins, discover.auto_encoder);
+    for _epoch in 0 .. discover.epochs {
+        let mut total = 0.0;
+        let mut total_err = 0.0;
+        for signal in &signals {
+            let mut order: Vec<usize> = (0 .. signal.len()).collect();
+            let slice: &mut [usize] = &mut order;
+            thread_rng().shuffle(slice);
+
+            for i in slice {
+                let x = numerics::Mat{ flat: signal.vec(*i).to_vec(), cols: signal.n_bins };
+                let error = nn.take_step(&x, discover.learning_rate);
+                total_err += error;
+                total += 1.0;
+            }
+        }
+        println!("{}", total_err/ total);
+    }
+    templates.save_encoder(nn).unwrap();
+    println!("==== Done! ==== ");
+}
+
+fn decode(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
+    let audio_files: Vec<String> = all_files(folder);
+    let nn =templates.read_encoder().unwrap();
+   
+    println!("==== Extract Interesting Regions ==== ");
+    let raw: Vec<audio::AudioData> = audio_files
+        .par_iter()
+        .map(|file| audio::AudioData::from_file(&file, 0))
+        .collect();
+    let spectrograms: Vec<spectrogram::NDSequence> = raw
+        .par_iter()
+        .map(|raw| {
+            spectrogram::NDSequence::new(
+                discover.dft_win,
+                discover.dft_step,
+                discover.ceps_filter,
+                raw
+            )
+        })
+        .collect();
+    let interesting: Vec<spectrogram::Slice> = spectrograms
+        .par_iter()
+        .flat_map(|spectrogram| {
+            spectrogram.interesting_ranges(
+                discover.vat_moving,
+                discover.vat_percentile,
+                discover.vat_min_len,
+            )
+        })
+        .collect();
+
+    let signals: Vec<spectrogram::NDSequence> = interesting
+        .par_iter()
+        .map(|x| {
+            spectrogram::Slice::extract(x).encoded(&nn)
+        })
+        .collect();
+
     let rates: Vec<u32> = raw.iter().map(|wav| wav.spec.sample_rate).collect();
     println!("==== Load HMM ====");
     let loaded_hmms = templates.read_hmms().unwrap();
@@ -151,6 +210,7 @@ fn decode(folder: &str, templates: &reporting::Templates, discover: &discovery::
 
 fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
     let audio_files: Vec<String> = all_files(folder);
+    let nn = templates.read_encoder().unwrap();
     println!("==== Extract Interesting Regions ==== ");
     let raw: Vec<audio::AudioData> = audio_files
         .par_iter()
@@ -163,7 +223,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
                 discover.dft_win,
                 discover.dft_step,
                 discover.ceps_filter,
-                raw,
+                raw
             )
         })
         .collect();
@@ -179,7 +239,9 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         .collect();
     let signals: Vec<spectrogram::NDSequence> = interesting
         .par_iter()
-        .map(spectrogram::Slice::extract)
+        .map(|x| {
+            spectrogram::Slice::extract(x).encoded(&nn)
+        })
         .collect();
     let rates: Vec<u32> = raw.iter().map(|wav| wav.spec.sample_rate).collect();
 

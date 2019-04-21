@@ -6,6 +6,7 @@ use crate::audio::*;
 use crate::clustering::*;
 use crate::hidden_markov_model::*;
 use crate::numerics::*;
+use crate::neural::*;
 use crate::spectrogram::*;
 use crate::error::*;
 
@@ -26,11 +27,23 @@ pub struct Templates {
     figure: String,
     table: String,
     result_html: String,
-    result_html_decoded: String
+    result_html_decoded: String,
+    out_encoder: String
 }
 
 impl Templates {
 
+    /// save an auto encoder
+    pub fn save_encoder(&self, encoder: AutoEncoder) -> Result<()> {
+        encoder.save_file(&format!("{}/auto_encoder.bin", self.out_encoder))?;       
+        Ok(())
+    }
+
+    /// load encoder
+    pub fn read_encoder(&self) -> Result<AutoEncoder> {        
+        AutoEncoder::from_file(&format!("{}/auto_encoder.bin", self.out_encoder))
+    }        
+    
     /// Save all hidden markov models
     pub fn read_hmms(&self) -> Result<Vec<HiddenMarkovModel>> {
         let mut hmms: Vec<HiddenMarkovModel> = vec![];
@@ -360,22 +373,24 @@ impl Templates {
         n_gaps: usize,
     ) {
         for (i, cluster) in clustering.iter().enumerate() {
-            let filename = format!("{}/cluster_{}.wav", self.out_audio, i);
-            let spec = audio[slices[cluster[0]].sequence.audio_id].spec;
-            let mut output = AudioData {
-                id: 0,
-                spec,
-                data: vec![],
-            };
-            for slice_id in cluster {
-                let slice = &slices[*slice_id];
-                let raw = &audio[slice.sequence.audio_id];
-                output.append(
-                    n_gaps,
-                    &mut raw.slice(slice.start * win_step, slice.stop * win_step),
-                );
+            if cluster.len() > 0 {
+                let filename = format!("{}/cluster_{}.wav", self.out_audio, i);
+                let spec = audio[slices[cluster[0]].sequence.audio_id].spec;
+                let mut output = AudioData {
+                    id: 0,
+                    spec,
+                    data: vec![],
+                };
+                for slice_id in cluster {
+                    let slice = &slices[*slice_id];
+                    let raw = &audio[slice.sequence.audio_id];
+                    output.append(
+                        n_gaps,
+                        &mut raw.slice(slice.start * win_step, slice.stop * win_step),
+                    );
+                }
+                output.write(filename);
             }
-            output.write(filename);
         }
     }
 }
