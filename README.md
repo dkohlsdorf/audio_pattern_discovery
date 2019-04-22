@@ -2,7 +2,7 @@
 
 Pattern Discovery In Audio Collections in Rust.
 
-The program will extract interesting regions and then cluster them using hierarchical clustering
+The program will extract interesting regions from wav files and then cluster them using hierarchical clustering
 under dynamic time warping.
 
 ## Method
