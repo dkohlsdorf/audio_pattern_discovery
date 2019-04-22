@@ -8,7 +8,7 @@ epochs        = 350                  # epochs
 
 # VAT
 vat_moving     = 15                # moving average of variance / frame
-vat_percentile = 0.85              # 85% of observations in the audio are noise
+vat_percentile = 0.99              # 85% of observations in the audio are noise
 vat_min_len    = 50                # minimum length of a signal is 50 frames
                
 # ALIGN AND CLUSTERING             
@@ -16,8 +16,8 @@ warping_band_percentage = 1.0       # sakoe shiba band
 insertion_penalty       = 1.0       # [0:1] Weight distance at on insertion path
 deletion_penalty        = 1.0       # [0:1] Weight distance at on deletion path
 match_penalty           = 1.0       # [0:1] Weight distance at on matching path
-alignment_workers       = 8         # 8 threads / worker
-clustering_percentile   = 0.1       # 10% of alignments can be merged
+alignment_workers       = 4         # 8 threads / worker
+clustering_percentile   = 0.01      # 10% of alignments can be merged
 
 # MODEL MERGING 
 merging_percentile          = 0.25 # 25% of alignments in a cluster can be merged

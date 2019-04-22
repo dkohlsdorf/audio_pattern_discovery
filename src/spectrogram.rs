@@ -7,8 +7,6 @@ use crate::numerics::*;
 use crate::audio::*;
 use crate::neural::*;
 
-// TODO save ceps
-
 /**
  * A flat Spectrogram / Cepstrum
  */
@@ -57,29 +55,19 @@ impl NDSequence {
                 .map(|complex| f32::sqrt(complex.norm_sqr()))
                 .take(fft_size / 2)
                 .collect();
-            let mut convolved: Vec<f32> = convolve(&result[0 .. result.len()], &triag[..], triag.len() / 2).iter().map(|x| f32::ln(*x)).collect();
+            let mut convolved: Vec<f32> = convolve(&result[0 .. result.len()], &triag[..], triag.len() / 2).iter().map(|x| f32::ln(*x + 1e-6)).collect();
             let mut cepstrum: Vec<f32>  = vec![0f32; convolved.len()];
             let dct = planner_dct.plan_dct1(convolved.len());  
             dct.process_dct1(&mut convolved, &mut cepstrum);
             let mu_ceps = mean(&cepstrum[4 .. cepstrum.len()]);
             let final_ceps: Vec<f32> = cepstrum.iter().skip(4).map(|c| c - mu_ceps).collect();            
-
-            /*let neural = match nn {
-                Some(nn) => nn.predict(&Mat{flat: final_ceps.clone(), cols: cepstrum.len() - 4}).flat,
-                _ => final_ceps
-            };*/
             n_bins = cepstrum.len() - 4;
-
-               /*match nn {
-                Some(nn) => nn.n_latent(),
-                _ => cepstrum.len() - 4
-            };*/
             for c in final_ceps.iter() {
                 ceps.push(*c);
             }
 
             let mu_spec    = mean(&result[10 .. result.len()]);
-            let std_spec   = std(&result[10 .. result.len()], mu_spec);
+            let std_spec   = f32::max(std(&result[10 .. result.len()], mu_spec), 1.0);
             for result in result.iter().skip(10) {
                 spectrogram.push( (result - mu_spec) / std_spec);
             }
@@ -186,7 +174,7 @@ impl NDSequence {
      **/
     pub fn interesting_ranges(&self, moving_average: usize, perc: f32, min_len: usize) -> Vec<Slice> {
         let th = percentile(&mut self.variance(moving_average), perc);
-        let variances = self.variance(moving_average);
+        let variances = self.variance(moving_average);        
         let mut ranges = vec![];
         let mut start = 0;
         let mut recording = true;

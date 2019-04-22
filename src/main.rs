@@ -69,6 +69,7 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
         .par_iter()
         .map(|file| audio::AudioData::from_file(&file, 0))
         .collect();
+    println!("Extracting Spectrograms");
     let spectrograms: Vec<spectrogram::NDSequence> = raw
         .par_iter()
         .map(|raw| {
@@ -80,6 +81,7 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
             )
         })
         .collect();
+    println!("Extracting Interesting Regions");
     let interesting: Vec<spectrogram::Slice> = spectrograms
         .par_iter()
         .flat_map(|spectrogram| {
@@ -90,6 +92,7 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
             )
         })
         .collect();
+    println!("Extracting Signals");
     let signals: Vec<spectrogram::NDSequence> = interesting
         .par_iter()
         .map(spectrogram::Slice::extract)
@@ -216,6 +219,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         .par_iter()
         .map(|file| audio::AudioData::from_file(&file, 0))
         .collect();
+    println!("Extracting Spectrograms");
     let spectrograms: Vec<spectrogram::NDSequence> = raw
         .par_iter()
         .map(|raw| {
@@ -227,6 +231,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
             )
         })
         .collect();
+    println!("Extracting Interesting Regions");
     let interesting: Vec<spectrogram::Slice> = spectrograms
         .par_iter()
         .flat_map(|spectrogram| {
@@ -237,6 +242,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
             )
         })
         .collect();
+    println!("Extracting Signals");
     let signals: Vec<spectrogram::NDSequence> = interesting
         .par_iter()
         .map(|x| {
@@ -244,7 +250,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         })
         .collect();
     let rates: Vec<u32> = raw.iter().map(|wav| wav.spec.sample_rate).collect();
-
+    
     println!("==== Plot All Regions ==== ");
     let mut file_names = vec![];
     let mut file_names_ceps = vec![];
