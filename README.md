@@ -1,6 +1,9 @@
 # Audio Pattern Discovery
 
-Pattern Discovery In Audio Collections in Rust
+Pattern Discovery In Audio Collections in Rust.
+
+The program will extract interesting regions and then cluster them using hierarchical clustering
+under dynamic time warping.
 
 ## Method
 
