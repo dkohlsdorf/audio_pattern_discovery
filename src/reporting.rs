@@ -1,11 +1,8 @@
 extern crate toml;
 extern crate glob;
 
-use crate::alignments::*;
 use crate::audio::*;
 use crate::clustering::*;
-use crate::hidden_markov_model::*;
-use crate::numerics::*;
 use crate::neural::*;
 use crate::spectrogram::*;
 use crate::error::*;
@@ -20,14 +17,10 @@ pub struct Templates {
     img_h: String,
     out_docs: String,
     out_images: String,
-    out_hmms: String,
     out_audio: String,
     document: String,
     dendogram: String,
-    figure: String,
-    table: String,
     result_html: String,
-    result_html_decoded: String,
     out_encoder: String
 }
 
@@ -44,30 +37,6 @@ impl Templates {
         AutoEncoder::from_file(&format!("{}/auto_encoder.bin", self.out_encoder))
     }        
     
-    /// Save all hidden markov models
-    pub fn read_hmms(&self) -> Result<Vec<HiddenMarkovModel>> {
-        let mut hmms: Vec<HiddenMarkovModel> = vec![];
-        for entry in glob::glob(&format!("{}/*.bin", self.out_hmms)).unwrap() {
-            match entry {
-                Ok(path) => {
-                    let file = String::from(path.to_string_lossy());
-                    println!("Reading HMM: {}", file);
-                    hmms.push(HiddenMarkovModel::from_file(&file)?);
-                }
-             Err(e) => println!("HMM Error reading {:?}", e),
-            }
-        }
-        Ok(hmms)
-    }
-
-    /// Save all hidden markov models
-    pub fn dump_hmms(&self, hmms: &[HiddenMarkovModel]) -> Result<()> {
-        for (i, hmm) in hmms.iter().enumerate() {
-            hmm.save_file(&format!("{}/decoder_{}.bin", self.out_hmms, i))?;
-        }
-        Ok(())
-    }
-
     /// save all slices to disc
     pub fn dump_slices(
         &self,
@@ -107,8 +76,7 @@ impl Templates {
         &self,
         out: String,
         cluster_files: &[String],
-        sub_sequence: &[String],
-        decode_only: bool
+        sub_sequence: &[String]
     ) -> Result<()> {
         let mut clusters = String::new();
         let mut sequences = String::new();
@@ -130,7 +98,7 @@ impl Templates {
             ));
         }
         sequences.push_str("</ul>");    
-        let mut file = if decode_only { File::open(&self.result_html_decoded)? } else { File::open(&self.result_html)? };
+        let mut file = File::open(&self.result_html)?;
         let mut template = String::new();
         file.read_to_string(&mut template)?;
         let filled = template
@@ -140,84 +108,6 @@ impl Templates {
         output.write_fmt(format_args!("{}", filled))?;
         
         Ok(())
-    }
-
-    /// Write all alignments to disc
-    pub fn dump_all_alignments(&self, n: usize, results: &[Alignment]) -> Result<Vec<String>> {
-        let mut figures = vec![];
-        for i in 0..n {
-            for j in 0..n {
-                if i != j {
-                    let len_n = results[i * n + j].n;
-                    let len_m = results[i * n + j].m;
-                    let mut dp = vec![0.0; len_n * len_m];
-                    for x in 0..len_n {
-                        for y in 0..len_m {
-                            if let Some(node) = results[i * n + j].sparse.get(&(x, y)) {
-                                if node.score_on_path.is_finite() {
-                                    dp[x * len_m + y] = node.score_on_path;
-                                }
-                            }
-                        }
-                    }
-                    let max_val = max(&dp);
-                    let min_val = min(&dp);
-                    let img: Vec<u8> = dp
-                        .iter()
-                        .map(|x| ((x - min_val) / (max_val - min_val) * 255.0) as u8)
-                        .collect();
-                    let filename = format!("alignment_{}_{}.png", i, j);
-                    println!("Dumping log of alignments: {}", filename);
-                    let figure = self.figure(
-                        &format!("alignment_{}_{}", i, j),
-                        &format!("Alignment between sequence {} and {}", i, j),
-                    )?;
-                    figures.push(figure);
-                    self.plot(filename, &img, len_n as u32, len_m as u32)?;
-                }
-            }
-        }
-        Ok(figures)
-    }
-
-    /// Generates a latex table    
-    pub fn table(&self, col_names: Vec<String>, cols: Vec<Vec<String>>) -> Result<String> {
-        let mut file = File::open(&self.table)?;
-        let mut template = String::new();
-        file.read_to_string(&mut template)?;
-        let mut formating = "|".to_string();
-        for _ in 0..cols.len() {
-            formating.push_str("r|");
-        }
-        let mut header = col_names[0].clone();
-        for c in col_names.iter().skip(1) {
-            header.push_str(&format!("& {}", c));
-        }
-        header.push_str("\\\\\n");
-        let mut content = String::new();
-        for col in cols {
-            content.push_str(&col[0].clone());
-            for c in col.iter().skip(1)  {
-                content.push_str(&format!("& {}", c));
-            }
-            content.push_str("\\\\\n");
-        }
-        Ok(template
-            .replace("<format>", &formating)
-            .replace("<heading>", &header)
-            .replace("<content>", &content))
-    }
-
-    /// Generate a latex figure
-    fn figure(&self, name: &str, caption: &str) -> Result<String> {
-        let mut file = File::open(&self.figure)?;
-        let mut template = String::new();
-        file.read_to_string(&mut template)?;
-        let img_ref = self.image_ref(name, false);
-        let filled = template
-            .replace("<caption>", caption)
-            .replace("<img_ref>", &img_ref);
-        Ok(filled)
     }
 
     /// Generate document from parts
@@ -233,52 +123,6 @@ impl Templates {
         let mut file_out = File::create(format!("{}/{}", self.out_docs, filename))?;
         file_out.write_fmt(format_args!("{}", result))?;
         Ok(())
-    }
-
-    /// Generate tikz of markov chain
-    pub fn gen_markov(
-        &self,
-        filename_without_extension: String,
-        markov_model: &HiddenMarkovModel,
-    ) -> Result<String> {
-        let mut n_transitions = 0;
-        let mut s = "digraph {\n".to_string();
-        for i in 0..markov_model.n_states {
-            if markov_model.is_segmental[i] {
-                s.push_str(&format!("{} [color=red];\n", i));
-            }
-        }
-        s.push_str("start [color=red];\n");
-        s.push_str("stop [color=red];\n");
-
-        for i in 0..markov_model.n_states {
-            if markov_model.start[i] > 0.0 {
-                s.push_str(&format!("\tstart -> {} [label=\"{:.2}\"];\n",  i, markov_model.start[i]));
-            }
-            if markov_model.stop[i] > 0.0 {
-                s.push_str(&format!("\t{} -> stop [label=\"{:.2}\"];\n", i, markov_model.stop[i]));
-            }
-            for j in 0..markov_model.n_states {
-                if markov_model.trans[i * markov_model.n_states + j] > 0.0 {
-                    s.push_str(&format!(
-                        "\t{} -> {} [label=\"{:.2}\"];\n",
-                        i,
-                        j,
-                        markov_model.trans[i * markov_model.n_states + j]
-                    ));
-                    n_transitions += 1;
-                }
-            }
-        }
-        println!("Creating model with: {}", n_transitions);
-        s.push_str("}");
-        let filename = format!("{}.dot", filename_without_extension);
-        let mut fp = File::create(&format!("{}/{}", self.out_docs, filename))?;
-        fp.write_fmt(format_args!("{}", s))?;
-        self.figure(
-            &filename_without_extension,
-            &format!("${}$", &filename_without_extension),
-        )
     }
 
     /// Dendogram generation from clustering results
