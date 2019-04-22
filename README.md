@@ -63,7 +63,7 @@ folder.
 + `clustering.rs` Hierarchical Clustering                  
 + `numerics.rs` All numerics methods
 + `spectrogram.rs` Implements spectrogram and slicing
-+ `neural` Implements a one layer autoencoder
++ `neural.rs` Implements a one layer autoencoder
 
 ## Requirements
 + Latex
