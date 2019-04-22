@@ -5,6 +5,8 @@ Pattern Discovery In Audio Collections in Rust.
 The program will extract interesting regions from wav files and then cluster them using hierarchical clustering
 under dynamic time warping. Below we see some extracted and clustered dolphin whistles.
 
+![dendogram](https://raw.githubusercontent.com/dkohlsdorf/audio_pattern_discovery/master/project/dendogram.png)
+
 ## Method
 
 From each file we extract the cepstrum [1] in the following manner:
