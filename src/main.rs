@@ -67,7 +67,8 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
     println!("==== Extract Interesting Regions ==== ");
     let raw: Vec<audio::AudioData> = audio_files
         .par_iter()
-        .map(|file| audio::AudioData::from_file(&file, 0))
+        .enumerate()
+        .map(|(i, file)| audio::AudioData::from_file(&file, i))
         .collect();
     println!("Extracting Spectrograms");
     let spectrograms: Vec<spectrogram::NDSequence> = raw
@@ -127,7 +128,8 @@ fn decode(folder: &str, templates: &reporting::Templates, discover: &discovery::
     println!("==== Extract Interesting Regions ==== ");
     let raw: Vec<audio::AudioData> = audio_files
         .par_iter()
-        .map(|file| audio::AudioData::from_file(&file, 0))
+        .enumerate()
+        .map(|(i, file)| audio::AudioData::from_file(&file, i))
         .collect();
     let spectrograms: Vec<spectrogram::NDSequence> = raw
         .par_iter()
@@ -217,7 +219,8 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
     println!("==== Extract Interesting Regions ==== ");
     let raw: Vec<audio::AudioData> = audio_files
         .par_iter()
-        .map(|file| audio::AudioData::from_file(&file, 0))
+        .enumerate()
+        .map(|(i, file)| audio::AudioData::from_file(&file, i))
         .collect();
     println!("Extracting Spectrograms");
     let spectrograms: Vec<spectrogram::NDSequence> = raw
