@@ -34,8 +34,9 @@ fn main() {
     let folder = &args[1];
 
     println!("Args: {:?}", args);
-    auto_encoder(folder, &templates, &discover);
-    learn(folder, &templates, &discover);
+    dump_interesting(folder, &templates.out_audio, &discover);
+    auto_encoder(&templates.out_audio, &templates, &discover);
+    learn(&templates.out_audio, &templates, &discover);
 }
 
 fn all_files(folder: &str) -> Vec<String> {
@@ -54,6 +55,33 @@ fn all_files(folder: &str) -> Vec<String> {
     audio_files
 }
 
+fn dump_interesting(folder: &str, out: &str, discover: &discovery::Discovery) {
+    for (i, file) in all_files(folder).iter().enumerate() {
+        println!("Dumping Intersting Slices For {}", file);
+        let raw = audio::AudioData::from_file(&file, i);
+        println!("\t..spectrogram");
+        let spectrogram = spectrogram::NDSequence::new(
+                discover.dft_win,
+                discover.dft_step,
+                discover.ceps_filter,
+                &raw
+        );
+        println!("\t..detect");
+        let interesting = spectrogram.interesting_ranges(
+            discover.vat_moving,
+            discover.vat_percentile,
+            discover.vat_min_len,
+        );
+        
+        for slice in interesting {            
+            let slice_name = format!("{}/{}_{}_{}.wav", out, i, slice.start * discover.dft_step, slice.stop * discover.dft_step);
+            println!("\t..dump {}", slice_name);
+            let raw_slice  = raw.slice(slice.start * discover.dft_step, slice.stop * discover.dft_step);
+            raw_slice.write(slice_name);
+        };
+    }
+}
+
 fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &discovery::Discovery) {
     let audio_files: Vec<String> = all_files(folder);
     println!("==== Extract Interesting Regions ==== ");
@@ -63,7 +91,7 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
         .map(|(i, file)| audio::AudioData::from_file(&file, i))
         .collect();
     println!("Extracting Spectrograms");
-    let spectrograms: Vec<spectrogram::NDSequence> = raw
+    let signals: Vec<spectrogram::NDSequence> = raw
         .par_iter()
         .map(|raw| {
             spectrogram::NDSequence::new(
@@ -73,22 +101,6 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
                 raw
             )
         })
-        .collect();
-    println!("Extracting Interesting Regions");
-    let interesting: Vec<spectrogram::Slice> = spectrograms
-        .par_iter()
-        .flat_map(|spectrogram| {
-            spectrogram.interesting_ranges(
-                discover.vat_moving,
-                discover.vat_percentile,
-                discover.vat_min_len,
-            )
-        })
-        .collect();
-    println!("Extracting Signals");
-    let signals: Vec<spectrogram::NDSequence> = interesting
-        .par_iter()
-        .map(spectrogram::Slice::extract)
         .collect();
     println!("==== Learn Auto Encoder ==== ");
     let mut nn = neural::AutoEncoder::new(signals[0].n_bins, discover.auto_encoder);
@@ -123,7 +135,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         .map(|(i, file)| audio::AudioData::from_file(&file, i))
         .collect();
     println!("Extracting Spectrograms");
-    let spectrograms: Vec<spectrogram::NDSequence> = raw
+    let signals: Vec<spectrogram::NDSequence> = raw
         .par_iter()
         .map(|raw| {
             spectrogram::NDSequence::new(
@@ -131,40 +143,14 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
                 discover.dft_step,
                 discover.ceps_filter,
                 raw
-            )
-        })
+            ).encoded(&nn)
+        })    
         .collect();
-    println!("Extracting Interesting Regions");
-    let interesting: Vec<spectrogram::Slice> = spectrograms
-        .par_iter()
-        .flat_map(|spectrogram| {
-            spectrogram.interesting_ranges(
-                discover.vat_moving,
-                discover.vat_percentile,
-                discover.vat_min_len,
-            )
-        })
-        .collect();
-    println!("Extracting Signals");
-    let signals: Vec<spectrogram::NDSequence> = interesting
-        .par_iter()
-        .map(|x| {
-            spectrogram::Slice::extract(x).encoded(&nn)
-        })
-        .collect();
-    let rates: Vec<u32> = raw.iter().map(|wav| wav.spec.sample_rate).collect();
-    
+
     println!("==== Plot All Regions ==== ");
     let mut file_names = vec![];
     let mut file_names_ceps = vec![];
     for (i, signal) in signals.iter().enumerate() {
-        let rate = raw[interesting[i].sequence.audio_id].spec.sample_rate as f32;
-        println!(
-            "Region {} {} {}",
-            interesting[i].sequence.audio_id,
-            (interesting[i].start * discover.dft_step) as f32 / rate,
-            (interesting[i].stop * discover.dft_step) as f32 / rate
-        );
         let file_id = format!("spec_{}", i);
         let file_id_ceps = format!("ceps_{}", i);
         let file_spec = format!("spec_{}.png", i);
@@ -204,17 +190,9 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
     let grouped = clustering::AgglomerativeClustering::cluster_sets(
         &operations,
         &clusters,
-        interesting.len(),
+        n
     );
-    templates.write_slices_audio(&grouped, &interesting, &raw, discover.dft_step, 10000);
-    let _ = templates.dump_slices(
-        "output/detections_clusters.txt".to_string(),
-        &grouped,
-        &interesting,
-        &audio_files,
-        &rates,
-        discover.dft_step,
-    );
+    templates.write_slices_audio(&grouped, &raw, 10000);
     println!("==== Generate Report ==== ");
     let mut clustering_files = vec![];
     for cluster in 0..grouped.len() {

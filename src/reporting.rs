@@ -13,15 +13,15 @@ use std::io::prelude::*;
 
 #[derive(Deserialize, Debug)]
 pub struct Templates {
-    img_w: String,
-    img_h: String,
-    out_docs: String,
-    out_images: String,
-    out_audio: String,
-    document: String,
-    dendogram: String,
-    result_html: String,
-    out_encoder: String
+    pub img_w: String,
+    pub img_h: String,
+    pub out_docs: String,
+    pub out_images: String,
+    pub out_audio: String,
+    pub document: String,
+    pub dendogram: String,
+    pub result_html: String,
+    pub out_encoder: String
 }
 
 impl Templates {
@@ -211,26 +211,22 @@ impl Templates {
     pub fn write_slices_audio(
         &self,
         clustering: &[Vec<usize>],
-        slices: &[Slice],
         audio: &[AudioData],
-        win_step: usize,
-        n_gaps: usize,
+        n_gaps: usize
     ) {
         for (i, cluster) in clustering.iter().enumerate() {
             if cluster.len() > 0 {
                 let filename = format!("{}/cluster_{}.wav", self.out_audio, i);
-                let spec = audio[slices[cluster[0]].sequence.audio_id].spec;
+                let spec = audio[cluster[0]].spec;
                 let mut output = AudioData {
                     id: 0,
                     spec,
                     data: vec![],
                 };
-                for slice_id in cluster {
-                    let slice = &slices[*slice_id];
-                    let raw = &audio[slice.sequence.audio_id];
+                for audio_id in cluster {
                     output.append(
                         n_gaps,
-                        &mut raw.slice(slice.start * win_step, slice.stop * win_step),
+                        &mut audio[*audio_id].clone()
                     );
                 }
                 output.write(filename);
