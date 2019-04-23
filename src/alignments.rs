@@ -10,7 +10,7 @@ use std::thread;
  */
 pub struct AlignmentWorkers {
     pub data: Arc<Vec<NDSequence>>,
-    pub result: Arc<Mutex<Vec<Alignment>>>,
+    pub result: Arc<Mutex<Vec<f32>>>,
 }
 
 impl AlignmentWorkers {
@@ -19,7 +19,7 @@ impl AlignmentWorkers {
         let data = Arc::from(data);
         let mut alignments = vec![];
         for _ in 0..n * n {
-            alignments.push(Alignment::new());
+            alignments.push(0.0);
         }
         let result = Arc::from(Mutex::from(alignments));
         AlignmentWorkers { data, result }
@@ -48,7 +48,7 @@ impl AlignmentWorkers {
                             let mut alignment = Alignment::new();
                             alignment.construct_alignment(&data[i], &data[j], &params);
                             let mut result = result.lock().unwrap();
-                            result[i * n + j] = alignment;
+                            result[i * n + j] = alignment.score();
                         }
                     }
                 }

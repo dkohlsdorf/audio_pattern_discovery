@@ -193,7 +193,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
     println!("Align 8 threads took {}", now.elapsed().as_secs());
 
     let result = workers.result.lock().unwrap();
-    let distances: Vec<f32> = result.iter().map(alignments::Alignment::score).collect();
+    let distances: Vec<f32> = result.clone();
     let (operations, clusters) = clustering::AgglomerativeClustering::clustering(
         distances,
         n,
