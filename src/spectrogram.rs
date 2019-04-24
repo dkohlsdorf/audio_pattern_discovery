@@ -74,7 +74,7 @@ impl NDSequence {
         }
         NDSequence {
             audio_id: raw_audio.id,
-            n_bins: n_bins, 
+            n_bins, 
             frames: ceps,
             dft_win: fft_size / 2 - 10,             
             spectrogram

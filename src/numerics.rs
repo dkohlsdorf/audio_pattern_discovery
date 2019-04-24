@@ -180,7 +180,7 @@ impl Mat {
             let uniform = (rng.gen_range(0.0, 1.0) - 0.5) / cols as f32;
             flat.push(uniform);
         }
-        Mat {flat, cols: cols}
+        Mat {flat, cols}
     }
     
     pub fn rows(&self) -> usize {
@@ -191,7 +191,7 @@ impl Mat {
         let min_val = min(&self.flat);
         let max_val = max(&self.flat);
         let scaler = max_val - min_val;
-        if min_val != max_val {
+        if (min_val - max_val).abs() < 1e-8 {
             let flat = self.flat.iter().map (|x| (x - min_val) / scaler).collect();
             Mat {flat, cols: self.cols}
         } else {

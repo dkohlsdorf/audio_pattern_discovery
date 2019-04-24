@@ -230,7 +230,7 @@ impl Templates {
         n_gaps: usize
     ) {
         for (i, cluster) in clustering.iter().enumerate() {
-            if cluster.len() > 0 {
+            if !cluster.is_empty() {
                 let filename = format!("{}/cluster_{}.wav", self.out_audio, i);
                 let spec = audio[cluster[0]].spec;
                 let mut output = AudioData {
