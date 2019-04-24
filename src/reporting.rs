@@ -20,6 +20,7 @@ pub struct Templates {
     pub out_audio: String,
     pub document: String,
     pub dendogram: String,
+    pub figure: String,
     pub result_html: String,
     pub out_encoder: String
 }
@@ -131,6 +132,7 @@ impl Templates {
         operations: &[ClusteringOperation],
         clusters: &HashSet<usize>,
         images: Vec<String>,
+        prefix: &str
     ) -> Result<Vec<String>> {
         let mut results: HashMap<usize, String> = HashMap::new();
         for op in operations {
@@ -160,14 +162,17 @@ impl Templates {
                 }
             }
         }
-        // TODO save images here, return figures
+
         let mut latex_parts = vec![];
         for (i, cluster) in clusters.iter().enumerate() {
             let caption = format!("Dendogram {}", i);
             match results.get(cluster) {
                 Some(result) => {
-                    let graph = self.tikz(result, &caption)?;
-                    latex_parts.push(graph);
+                    let graph = self.tikz(result)?;                    
+                    let mut fp_graph = File::create(format!("{}/cluster_{}_{}.tikz", self.out_images, prefix, i))?;
+                    fp_graph.write_fmt(format_args!("{}", graph))?;
+                    let figure = self.figure(&self.image_ref(&format!("cluster_{}_{}.tikz", prefix, i), false), &caption)?;
+                    latex_parts.push(figure);
                 }
                 _ => println!("Cluster not found: {} | Singular cluster", cluster),
             }
@@ -193,18 +198,27 @@ impl Templates {
             )
         } else {
             format!(
-                "\\includegraphics[width=\\textwidth,height=\\textheight,keepaspectratio]{{{}}}\n",
+                "\\includegraphics[width=\\textwidth]{{{}}}\n",
                 path
             )
         }
     }
 
     /// Set a tikz image
-    fn tikz(&self, tree: &str, caption: &str) -> Result<String> {
+    fn tikz(&self, tree: &str) -> Result<String> {
         let mut file = File::open(&self.dendogram)?;
         let mut template = String::new();
         file.read_to_string(&mut template)?;
         let tree_latex = template.replace("<tree>", tree);
+        Ok(tree_latex)
+    }
+
+    /// Set a figure
+    fn figure(&self, img_ref: &str, caption: &str) -> Result<String> {
+        let mut file = File::open(&self.figure)?;
+        let mut template = String::new();
+        file.read_to_string(&mut template)?;
+        let tree_latex = template.replace("<img_ref>", img_ref);
         Ok(tree_latex.replace("<caption>", caption))
     }
 

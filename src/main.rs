@@ -20,9 +20,6 @@ pub mod reporting;
 pub mod spectrogram;
 pub mod neural;
 
-// TODO: Save all figures as individual tikz files and then use includegraphics and scale
-// file:///usr/local/texlive/2015/texmf-dist/doc/latex/tikzscale/README
-
 fn main() {
     println!("==== Pattern Discovery ====");
     println!("# by Daniel Kohlsdorf     #");
@@ -207,8 +204,8 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         &clustering_files,
         &[],
     );
-        if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps) {
-            if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names) {
+        if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps, "ceps") {
+            if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names, "specs") {
                 let mut latex_parts =
                     vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
                 latex_parts.extend(ceps_tex);

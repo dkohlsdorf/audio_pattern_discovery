@@ -16,5 +16,5 @@ warping_band_percentage = 1.0       # sakoe shiba band
 insertion_penalty       = 1.0       # [0:1] Weight distance at on insertion path
 deletion_penalty        = 1.0       # [0:1] Weight distance at on deletion path
 match_penalty           = 1.0       # [0:1] Weight distance at on matching path
-alignment_workers       = 4         # 8 threads / worker
+alignment_workers       = 8         # 8 threads / worker
 clustering_percentile   = 0.1       # 10% of alignments can be merged
