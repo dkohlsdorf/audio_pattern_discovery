@@ -160,6 +160,7 @@ impl Templates {
                 }
             }
         }
+        // TODO save images here, return figures
         let mut latex_parts = vec![];
         for (i, cluster) in clusters.iter().enumerate() {
             let caption = format!("Dendogram {}", i);

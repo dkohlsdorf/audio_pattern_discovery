@@ -20,6 +20,9 @@ pub mod reporting;
 pub mod spectrogram;
 pub mod neural;
 
+// TODO: Save all figures as individual tikz files and then use includegraphics and scale
+// file:///usr/local/texlive/2015/texmf-dist/doc/latex/tikzscale/README
+
 fn main() {
     println!("==== Pattern Discovery ====");
     println!("# by Daniel Kohlsdorf     #");
