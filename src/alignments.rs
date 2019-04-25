@@ -38,9 +38,9 @@ impl AlignmentWorkers {
             let data = self.data.clone();
             let result = self.result.clone();
             let params = params.clone();
-            let th = thread::spawn(move || {
-                for i in start..stop {
-                    println!("Thread: {} instance: {}", batch, i);
+            let th = thread::spawn(move || {                
+                for i in start..stop {                    
+                    println!("Thread: {} instance: {}: {} x {}", batch, i, data[i].len(), data[i].n_bins);
                     for j in 0..n {
                         if i != j {
                             let len = usize::max(data[i].len(), data[j].len());
