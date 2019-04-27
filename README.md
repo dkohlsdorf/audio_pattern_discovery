@@ -59,7 +59,7 @@ In order to configure the program use the file in `project/config`.
 In order to change the latex templates use the `project/templates` 
 folder.
 
-## Source Code and Project
+## Source Code
 + `audio.rs` Read and Write Audio                     
 + `discovery.rs` Discovery Parameters
 + `main.rs` Tying it all together              
@@ -69,6 +69,15 @@ folder.
 + `numerics.rs` All numerics methods
 + `spectrogram.rs` Implements spectrogram and slicing
 + `neural.rs` Implements a one layer autoencoder
+
+## Output Folder
+The results will be generated in the output folder:
++ `result.html` Summary of output with all links to the tool
++ `log.txt` Will show the logs of the run
++ `img` Holds all image files, including the tikz files for the dendograms and the png files for the spectrograms
++ `encoder` Binary dump of the auto encoder
++ `docs` Will contain the final pdf with all images and the log
++ `audio` Includes all interesting regions and clusters as wav files
 
 ## Requirements
 + Latex
