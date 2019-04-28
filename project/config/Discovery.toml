@@ -12,7 +12,7 @@ vat_percentile = 0.95              # 95% of observations in the audio are noise
 vat_min_len    = 150               # minimum length of a signal is 50 frames
                
 # ALIGN AND CLUSTERING             
-warping_band_percentage = 1.0       # sakoe shiba band
+warping_band_percentage = 0.1       # sakoe shiba band
 insertion_penalty       = 1.0       # [0:1] Weight distance at on insertion path
 deletion_penalty        = 1.0       # [0:1] Weight distance at on deletion path
 match_penalty           = 1.0       # [0:1] Weight distance at on matching path
