@@ -50,7 +50,7 @@ impl AutoEncoder {
     pub fn predict(&self, x: &Mat) -> Mat {
         let prediction = x.mul(&self.w_encode).add_col(&self.b_encode).sigmoid().scale(255.0);
         let mu = mean(&prediction.flat);
-        let sigma = std(&prediction.flat,mu);
+        let sigma = f32::max(std(&prediction.flat,mu), 1.0);
         Mat {
             flat: prediction.flat.iter().map(|x| z_score(*x, mu, sigma)).collect(),
             cols: prediction.cols
