@@ -2,8 +2,8 @@
 dft_win       = 256                  # DFT window
 dft_step      = 128                  # How many samples to skip
 ceps_filter   = 32                   # triangular filters of cepstrum
-auto_encoder  = 15   		     # auto encoder dim
-learning_rate = 0.01		     # auto encoder lr
+auto_encoder  = 5   		     # auto encoder dim
+learning_rate = 0.001		     # auto encoder lr
 epochs        = 25                   # epochs
 
 # VAT
@@ -16,5 +16,5 @@ warping_band_percentage = 1.0       # sakoe shiba band
 insertion_penalty       = 1.0       # [0:1] Weight distance at on insertion path
 deletion_penalty        = 1.0       # [0:1] Weight distance at on deletion path
 match_penalty           = 1.0       # [0:1] Weight distance at on matching path
-alignment_workers       = 8         # 8 threads / worker
+alignment_workers       = 4         # 8 threads / worker
 clustering_percentile   = 0.1       # 10% of alignments can be merged
