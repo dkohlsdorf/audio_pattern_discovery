@@ -168,12 +168,16 @@ impl Templates {
             let caption = format!("Dendogram {}", i);
             match results.get(cluster) {
                 Some(result) => {
-                    let graph = self.tikz(result)?;                    
-                    let mut fp_graph = File::create(format!("{}/cluster_{}_{}.tikz", self.out_images, prefix, i))?;
-                    fp_graph.write_fmt(format_args!("{}", graph))?;
-                    let figure = self.figure(&self.image_ref(&format!("cluster_{}_{}.tikz", prefix, i), false), &caption)?;
-                    latex_parts.push(figure);
-                }
+		    if result.len() < 1000 {
+                    	let graph = self.tikz(result)?;                    
+                   	let mut fp_graph = File::create(format!("{}/cluster_{}_{}.tikz", self.out_images, prefix, i))?;
+                    	fp_graph.write_fmt(format_args!("{}", graph))?;
+                    	let figure = self.figure(&self.image_ref(&format!("cluster_{}_{}.tikz", prefix, i), false), &caption)?;
+                    	latex_parts.push(figure);
+                    } else {
+			println!("Cluster too big: {} | characters {} > 1000", cluster, result.len());
+		    }
+		}
                 _ => println!("Cluster not found: {} | Singular cluster", cluster),
             }
         }
