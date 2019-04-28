@@ -74,16 +74,19 @@ impl AgglomerativeClustering {
      */
     pub fn clustering(distances: Vec<f32>, n_instances: usize, perc: f32) -> (Vec<ClusteringOperation>, HashSet<usize>) {
         let n_clusters = n_instances;
+	println!("\tset parents to self");
         let mut parents = vec![];
         for i in 0..n_instances {
             parents.push(i);
         }        
+	println!("\tbuild initial dendogram");
         let mut dendogram = AgglomerativeClustering {
             parents,
             distances: distances.clone(),
             n_instances,
             n_clusters,
         };
+	println!("\testimate threshold");
         let mut cluster_result = vec![];
         let threshold = percentile(&mut distances.clone(), perc);
         println!("Clustering with {}", threshold);

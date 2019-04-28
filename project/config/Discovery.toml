@@ -3,8 +3,8 @@ dft_win       = 256                  # DFT window
 dft_step      = 128                  # How many samples to skip
 ceps_filter   = 32                   # triangular filters of cepstrum
 auto_encoder  = 15   		     # auto encoder dim
-learning_rate = 0.001		     # auto encoder lr
-epochs        = 15                   # epochs
+learning_rate = 0.01		     # auto encoder lr
+epochs        = 25                   # epochs
 
 # VAT
 vat_moving     = 15                # moving average of variance / frame

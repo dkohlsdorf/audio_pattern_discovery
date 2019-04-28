@@ -124,8 +124,9 @@ pub fn euclidean(x: &[f32], y: &[f32]) -> f32 {
  */
 pub fn percentile(x: &mut [f32], perc: f32) -> f32 {
     let n = x.len() as f32 * perc;
-    x.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    x[n as usize]
+    let mut numbers: Vec<f32> = x.iter().filter_map(|x| if x.is_nan() { None } else { Some(*x) }).collect();
+    numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    numbers[n as usize]
 }
 
 /**
