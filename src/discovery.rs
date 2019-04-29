@@ -20,11 +20,10 @@ pub struct Discovery {
     pub match_penalty: f32,
     pub auto_encoder: usize,
     pub learning_rate: f32,
-    pub epochs: usize
+    pub epochs: usize,
 }
 
 impl Discovery {
-
     pub fn from_toml(file: String) -> Discovery {
         let mut template_conf = String::new();
         let _ = File::open(file)
@@ -39,8 +38,7 @@ impl Discovery {
             warping_band: (self.warping_band_percentage * n_size as f32) as usize,
             insertion_penalty: self.insertion_penalty,
             match_penalty: self.match_penalty,
-            deletion_penalty: self.deletion_penalty
+            deletion_penalty: self.deletion_penalty,
         }
     }
-
 }

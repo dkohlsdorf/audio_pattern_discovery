@@ -1,5 +1,5 @@
-use std::collections::{HashSet, HashMap};
 use crate::numerics::*;
+use std::collections::{HashMap, HashSet};
 
 /**
  * Defines what we merge against what
@@ -33,23 +33,27 @@ pub struct AgglomerativeClustering {
     parents: Vec<usize>,
     distances: Vec<f32>,
     n_instances: usize,
-    n_clusters:  usize,
+    n_clusters: usize,
 }
 
 impl AgglomerativeClustering {
-    pub fn cluster_sets(operations: &[ClusteringOperation], cluster_ids: &HashSet<usize>, n_instances: usize) -> Vec<Vec<usize>> {
+    pub fn cluster_sets(
+        operations: &[ClusteringOperation],
+        cluster_ids: &HashSet<usize>,
+        n_instances: usize,
+    ) -> Vec<Vec<usize>> {
         let mut results: HashMap<usize, Vec<usize>> = HashMap::new();
         for op in operations {
             let i = op.merge_i;
             let j = op.merge_j;
             let k = op.into;
-            let mut cluster = vec![];   
-            if let Some(c) = results.get(&i) { 
+            let mut cluster = vec![];
+            if let Some(c) = results.get(&i) {
                 cluster.extend(c);
             } else {
                 cluster.push(i);
             }
-            if let Some(c) = results.get(&j) { 
+            if let Some(c) = results.get(&j) {
                 cluster.extend(c);
             } else {
                 cluster.push(j);
@@ -59,11 +63,13 @@ impl AgglomerativeClustering {
         let mut grouped = vec![];
         for cluster in cluster_ids.iter() {
             match results.get(cluster) {
-                Some(result) => grouped.push(result
-                    .iter()
-                    .filter_map(|i| if *i < n_instances { Some(*i) } else { None })
-                .collect()),
-                _ => println!("Cluster not found: {} | Singular cluster", cluster)
+                Some(result) => grouped.push(
+                    result
+                        .iter()
+                        .filter_map(|i| if *i < n_instances { Some(*i) } else { None })
+                        .collect(),
+                ),
+                _ => println!("Cluster not found: {} | Singular cluster", cluster),
             }
         }
         grouped
@@ -72,29 +78,33 @@ impl AgglomerativeClustering {
     /**
      * Initialise agglomerative clustering setting each instance as it's own cluster
      */
-    pub fn clustering(distances: Vec<f32>, n_instances: usize, perc: f32) -> (Vec<ClusteringOperation>, HashSet<usize>) {
+    pub fn clustering(
+        distances: Vec<f32>,
+        n_instances: usize,
+        perc: f32,
+    ) -> (Vec<ClusteringOperation>, HashSet<usize>) {
         let n_clusters = n_instances;
-	println!("\tset parents to self");
+        println!("\tset parents to self");
         let mut parents = vec![];
         for i in 0..n_instances {
             parents.push(i);
-        }        
-	println!("\tbuild initial dendogram");
+        }
+        println!("\tbuild initial dendogram");
         let mut dendogram = AgglomerativeClustering {
             parents,
             distances: distances.clone(),
             n_instances,
             n_clusters,
         };
-	println!("\testimate threshold");
+        println!("\testimate threshold");
         let mut cluster_result = vec![];
         let threshold = percentile(&mut distances.clone(), perc);
         println!("Clustering with {}", threshold);
         let mut distance = 0.0;
-        while dendogram.n_clusters > 1 && distance < threshold {            
+        while dendogram.n_clusters > 1 && distance < threshold {
             let operation = dendogram.merge();
             distance = operation.distance;
-            cluster_result.push(operation);        
+            cluster_result.push(operation);
         }
         (cluster_result, dendogram.clusters())
     }

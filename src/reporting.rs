@@ -1,11 +1,11 @@
-extern crate toml;
 extern crate glob;
+extern crate toml;
 
 use crate::audio::*;
 use crate::clustering::*;
+use crate::error::*;
 use crate::neural::*;
 use crate::spectrogram::*;
-use crate::error::*;
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -22,22 +22,21 @@ pub struct Templates {
     pub dendogram: String,
     pub figure: String,
     pub result_html: String,
-    pub out_encoder: String
+    pub out_encoder: String,
 }
 
 impl Templates {
-
     /// save an auto encoder
     pub fn save_encoder(&self, encoder: AutoEncoder) -> Result<()> {
-        encoder.save_file(&format!("{}/auto_encoder.bin", self.out_encoder))?;       
+        encoder.save_file(&format!("{}/auto_encoder.bin", self.out_encoder))?;
         Ok(())
     }
 
     /// load encoder
-    pub fn read_encoder(&self) -> Result<AutoEncoder> {        
+    pub fn read_encoder(&self) -> Result<AutoEncoder> {
         AutoEncoder::from_file(&format!("{}/auto_encoder.bin", self.out_encoder))
-    }        
-    
+    }
+
     /// save all slices to disc
     pub fn dump_slices(
         &self,
@@ -54,10 +53,16 @@ impl Templates {
             for slice_id in cluster {
                 let slice = &slices[*slice_id];
                 let audio_id = audio_filename[slice.sequence.audio_id].clone();
-                let rate  = frame_rates[slice.sequence.audio_id] as f32;
+                let rate = frame_rates[slice.sequence.audio_id] as f32;
                 let start = slice.start * sample_step;
-                let stop  = slice.stop  * sample_step;
-                fp.write_fmt(format_args!("{}\t{}\t{}\t{}\n", audio_id, start as f32 / rate, stop as f32 / rate, i))?;
+                let stop = slice.stop * sample_step;
+                fp.write_fmt(format_args!(
+                    "{}\t{}\t{}\t{}\n",
+                    audio_id,
+                    start as f32 / rate,
+                    stop as f32 / rate,
+                    i
+                ))?;
             }
         }
         Ok(())
@@ -77,7 +82,7 @@ impl Templates {
         &self,
         out: String,
         cluster_files: &[String],
-        sub_sequence: &[String]
+        sub_sequence: &[String],
     ) -> Result<()> {
         let mut clusters = String::new();
         let mut sequences = String::new();
@@ -98,7 +103,7 @@ impl Templates {
                 &p, &p, &p
             ));
         }
-        sequences.push_str("</ul>");    
+        sequences.push_str("</ul>");
         let mut file = File::open(&self.result_html)?;
         let mut template = String::new();
         file.read_to_string(&mut template)?;
@@ -107,7 +112,7 @@ impl Templates {
             .replace("[SUB_WAV]", &sequences);
         let mut output = File::create(out)?;
         output.write_fmt(format_args!("{}", filled))?;
-        
+
         Ok(())
     }
 
@@ -132,7 +137,7 @@ impl Templates {
         operations: &[ClusteringOperation],
         clusters: &HashSet<usize>,
         images: Vec<String>,
-        prefix: &str
+        prefix: &str,
     ) -> Result<Vec<String>> {
         let mut results: HashMap<usize, String> = HashMap::new();
         for op in operations {
@@ -168,16 +173,26 @@ impl Templates {
             let caption = format!("Dendogram {}", i);
             match results.get(cluster) {
                 Some(result) => {
-		    if result.len() < 1000 {
-                    	let graph = self.tikz(result)?;                    
-                   	let mut fp_graph = File::create(format!("{}/cluster_{}_{}.tikz", self.out_images, prefix, i))?;
-                    	fp_graph.write_fmt(format_args!("{}", graph))?;
-                    	let figure = self.figure(&self.image_ref(&format!("cluster_{}_{}.tikz", prefix, i), false), &caption)?;
-                    	latex_parts.push(figure);
+                    if result.len() < 1000 {
+                        let graph = self.tikz(result)?;
+                        let mut fp_graph = File::create(format!(
+                            "{}/cluster_{}_{}.tikz",
+                            self.out_images, prefix, i
+                        ))?;
+                        fp_graph.write_fmt(format_args!("{}", graph))?;
+                        let figure = self.figure(
+                            &self.image_ref(&format!("cluster_{}_{}.tikz", prefix, i), false),
+                            &caption,
+                        )?;
+                        latex_parts.push(figure);
                     } else {
-			println!("Cluster too big: {} | characters {} > 1000", cluster, result.len());
-		    }
-		}
+                        println!(
+                            "Cluster too big: {} | characters {} > 1000",
+                            cluster,
+                            result.len()
+                        );
+                    }
+                }
                 _ => println!("Cluster not found: {} | Singular cluster", cluster),
             }
         }
@@ -201,10 +216,7 @@ impl Templates {
                 self.img_w, self.img_h, path
             )
         } else {
-            format!(
-                "\\includegraphics[width=\\textwidth]{{{}}}\n",
-                path
-            )
+            format!("\\includegraphics[width=\\textwidth]{{{}}}\n", path)
         }
     }
 
@@ -231,7 +243,7 @@ impl Templates {
         &self,
         clustering: &[Vec<usize>],
         audio: &[AudioData],
-        n_gaps: usize
+        n_gaps: usize,
     ) {
         for (i, cluster) in clustering.iter().enumerate() {
             if !cluster.is_empty() {
@@ -243,14 +255,10 @@ impl Templates {
                     data: vec![],
                 };
                 for audio_id in cluster {
-                    output.append(
-                        n_gaps,
-                        &mut audio[*audio_id].clone()
-                    );
+                    output.append(n_gaps, &mut audio[*audio_id].clone());
                 }
                 output.write(filename);
             }
         }
     }
 }
-

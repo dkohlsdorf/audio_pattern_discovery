@@ -2,8 +2,8 @@
 extern crate serde_derive;
 extern crate glob;
 extern crate image;
-extern crate rayon;
 extern crate rand;
+extern crate rayon;
 
 use rand::{thread_rng, Rng};
 use rayon::prelude::*;
@@ -15,10 +15,10 @@ pub mod audio;
 pub mod clustering;
 pub mod discovery;
 pub mod error;
+pub mod neural;
 pub mod numerics;
 pub mod reporting;
 pub mod spectrogram;
-pub mod neural;
 
 fn main() {
     println!("==== Pattern Discovery ====");
@@ -61,10 +61,10 @@ fn dump_interesting(folder: &str, out: &str, discover: &discovery::Discovery) {
         let raw = audio::AudioData::from_file(&file, i);
         println!("\t..spectrogram");
         let spectrogram = spectrogram::NDSequence::new(
-                discover.dft_win,
-                discover.dft_step,
-                discover.ceps_filter,
-                &raw
+            discover.dft_win,
+            discover.dft_step,
+            discover.ceps_filter,
+            &raw,
         );
         println!("\t..detect");
         let interesting = spectrogram.interesting_ranges(
@@ -72,13 +72,22 @@ fn dump_interesting(folder: &str, out: &str, discover: &discovery::Discovery) {
             discover.vat_percentile,
             discover.vat_min_len,
         );
-        
-        for slice in interesting {            
-            let slice_name = format!("{}/{}_{}_{}.wav", out, i, slice.start * discover.dft_step, slice.stop * discover.dft_step);
+
+        for slice in interesting {
+            let slice_name = format!(
+                "{}/{}_{}_{}.wav",
+                out,
+                i,
+                slice.start * discover.dft_step,
+                slice.stop * discover.dft_step
+            );
             println!("\t..dump {}", slice_name);
-            let raw_slice  = raw.slice(slice.start * discover.dft_step, slice.stop * discover.dft_step);
+            let raw_slice = raw.slice(
+                slice.start * discover.dft_step,
+                slice.stop * discover.dft_step,
+            );
             raw_slice.write(slice_name);
-        };
+        }
     }
 }
 
@@ -98,28 +107,31 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
                 discover.dft_win,
                 discover.dft_step,
                 discover.ceps_filter,
-                raw
+                raw,
             )
         })
         .collect();
     println!("==== Learn Auto Encoder ==== ");
     let mut nn = neural::AutoEncoder::new(signals[0].n_bins, discover.auto_encoder);
-    for _epoch in 0 .. discover.epochs {
+    for _epoch in 0..discover.epochs {
         let mut total = 0.0;
         let mut total_err = 0.0;
         for signal in &signals {
-            let mut order: Vec<usize> = (0 .. signal.len()).collect();
+            let mut order: Vec<usize> = (0..signal.len()).collect();
             let slice: &mut [usize] = &mut order;
             thread_rng().shuffle(slice);
 
             for i in slice {
-                let x = numerics::Mat{ flat: signal.vec(*i).to_vec(), cols: signal.n_bins };
+                let x = numerics::Mat {
+                    flat: signal.vec(*i).to_vec(),
+                    cols: signal.n_bins,
+                };
                 let error = nn.take_step(&x, discover.learning_rate);
                 total_err += error;
                 total += 1.0;
             }
         }
-        println!("{}", total_err/ total);
+        println!("{}", total_err / total);
     }
     templates.save_encoder(nn).unwrap();
     println!("==== Done! ==== ");
@@ -142,9 +154,10 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
                 discover.dft_win,
                 discover.dft_step,
                 discover.ceps_filter,
-                raw
-            ).encoded(&nn)
-        })    
+                raw,
+            )
+            .encoded(&nn)
+        })
         .collect();
 
     println!("==== Plot All Regions ==== ");
@@ -187,11 +200,7 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
     );
 
     println!("==== Writing Cluster Audio ==== ");
-    let grouped = clustering::AgglomerativeClustering::cluster_sets(
-        &operations,
-        &clusters,
-        n
-    );
+    let grouped = clustering::AgglomerativeClustering::cluster_sets(&operations, &clusters, n);
     templates.write_slices_audio(&grouped, &raw, 10000);
     println!("==== Generate Report ==== ");
     let mut clustering_files = vec![];
@@ -199,21 +208,17 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         let filename = format!("cluster_{}.wav", cluster);
         clustering_files.push(filename);
     }
-    let _ = templates.write_html(
-        "output/result.html".to_string(),
-        &clustering_files,
-        &[],
-    );
-        if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps, "ceps") {
-            if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names, "specs") {
-                let mut latex_parts =
-                    vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
-                latex_parts.extend(ceps_tex);
-                latex_parts.push("\\chapter{Clusters With Spectrum Visualisation}".to_string());
-                latex_parts.extend(spec_tex);
-                let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
-            }
+    let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &[]);
+    if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps, "ceps") {
+        if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names, "specs") {
+            let mut latex_parts =
+                vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
+            latex_parts.extend(ceps_tex);
+            latex_parts.push("\\chapter{Clusters With Spectrum Visualisation}".to_string());
+            latex_parts.extend(spec_tex);
+            let _ = templates.generate_doc("results.tex".to_string(), latex_parts);
         }
-    
+    }
+
     println!("==== Done! ==== ");
 }

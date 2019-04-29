@@ -8,11 +8,10 @@ use std::iter::FromIterator;
 pub struct AudioData {
     pub id: usize,
     pub spec: WavSpec,
-    pub data: Vec<i16>
+    pub data: Vec<i16>,
 }
 
 impl AudioData {
-
     /**
      * Read audio data. For multiple channels, we only take the first.
      */
@@ -43,7 +42,7 @@ impl AudioData {
      * Append audio samples to this file, seperated by zeros
      */
     pub fn append(&mut self, insert_zeros: usize, audio: &mut AudioData) {
-        for _i in 0 .. insert_zeros {
+        for _i in 0..insert_zeros {
             self.data.push(0);
         }
         self.data.append(&mut audio.data);
@@ -51,9 +50,13 @@ impl AudioData {
 
     /**
      * Extract a slice of audio
-     */    
+     */
     pub fn slice(&self, t_start: usize, t_stop: usize) -> AudioData {
-        AudioData{id: self.id, spec: self.spec, data: Vec::from_iter(self.data[t_start .. t_stop].iter().cloned())}
+        AudioData {
+            id: self.id,
+            spec: self.spec,
+            data: Vec::from_iter(self.data[t_start..t_stop].iter().cloned()),
+        }
     }
 
     /**
@@ -64,6 +67,5 @@ impl AudioData {
         for sample in self.data.iter() {
             writer.write_sample(*sample).unwrap();
         }
-    }    
-
+    }
 }
