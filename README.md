@@ -22,7 +22,7 @@ The parameters needed so far are:
 + triangular window size
 
 We then find slices where something `interesting` happens:
-+ 0. For each cepstrum frame compute it's variance
++ 0. For each cepstrum frame compute its variance
 + 1. Smooth the variances in each sequence using a moving average
 + 2. Extract long sequences of high variances
 
@@ -43,7 +43,7 @@ We cluster using agglomerative clustering with average linkage
 also known as UPGMA[4]. 
 
 After this we generate an audio file for each cluster which contains all instances
-of the cluster. A latex document with the dendograms of the clusterin and
+of the cluster. A latex document with the dendrograms of the clustering and
 a classification experiment showing that the models for each cluster model
 the data. The output of the tool is summarised in a result html page.
 
@@ -74,7 +74,7 @@ folder.
 The results will be generated in the output folder:
 + `result.html` Summary of output with all links to the tool
 + `log.txt` Will show the logs of the run
-+ `img` Holds all image files, including the tikz files for the dendograms and the png files for the spectrograms
++ `img` Holds all image files, including the tikz files for the dendrograms and the png files for the spectrograms
 + `encoder` Binary dump of the auto encoder
 + `docs` Will contain the final pdf with all images and the log
 + `audio` Includes all interesting regions and clusters as wav files
