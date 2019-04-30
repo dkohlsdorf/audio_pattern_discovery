@@ -32,6 +32,7 @@ The parameters needed for the `interesting` detector are:
 
 Now we can also reduce the dimensionality further, by adding
 an auto encoder. The one used here only has one hidden layer.
+All layers have sigmoid activations. []
 
 We then cluster all sequences using dynamic time warping window.
 The window can be restricted by a `Sakoe-Chiba` band [2]. Furthermore,
@@ -68,7 +69,7 @@ folder.
 + `clustering.rs` Hierarchical Clustering                  
 + `numerics.rs` All numerics methods
 + `spectrogram.rs` Implements spectrogram and slicing
-+ `neural.rs` Implements a one layer autoencoder
++ `neural.rs` Implements a one hidden layer autoencoder
 
 ## Output Folder
 The results will be generated in the output folder:
@@ -88,3 +89,5 @@ The results will be generated in the output folder:
 + [2 Sakoe Chiba](https://ieeexplore.ieee.org/document/1163055)
 + [3 DTW and Weights](https://www.amazon.com/Speech-Synthesis-Recognition-Wendy-Holmes/dp/0748408576)
 + [4 UPGMA](https://en.wikipedia.org/wiki/UPGMA)
++ [5 Auto Encoder](http://ufldl.stanford.edu/wiki/index.php/Autoencoders_and_Sparsity)
+
