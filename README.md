@@ -32,7 +32,7 @@ The parameters needed for the `interesting` detector are:
 
 Now we can also reduce the dimensionality further, by adding
 an auto encoder. The one used here only has one hidden layer.
-All layers have sigmoid activations. []
+All layers have sigmoid activations [5].
 
 We then cluster all sequences using dynamic time warping window.
 The window can be restricted by a `Sakoe-Chiba` band [2]. Furthermore,
