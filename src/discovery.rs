@@ -21,6 +21,8 @@ pub struct Discovery {
     pub auto_encoder: usize,
     pub learning_rate: f32,
     pub epochs: usize,
+    pub epoch_drop: f32,
+    pub drop: f32
 }
 
 impl Discovery {

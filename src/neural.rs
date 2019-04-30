@@ -3,6 +3,8 @@ extern crate serde_derive;
 
 use crate::error::*;
 use crate::numerics::*;
+use crate::discovery::*;
+
 use bincode::{deserialize, serialize};
 use std::fs::File;
 use std::io::prelude::*;
@@ -19,6 +21,10 @@ pub struct AutoEncoder {
 impl AutoEncoder {
     pub fn n_latent(&self) -> usize {
         self.b_encode.cols
+    }
+
+    pub fn step_decay(epoch: f32, params: &Discovery) -> f32 {
+        params.learning_rate * f32::powf(params.drop, f32::floor((1.0 + epoch) / params.epoch_drop))
     }
 
     pub fn from_file(file: &str) -> Result<AutoEncoder> {

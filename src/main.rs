@@ -113,25 +113,25 @@ fn auto_encoder(folder: &str, templates: &reporting::Templates, discover: &disco
         .collect();
     println!("==== Learn Auto Encoder ==== ");
     let mut nn = neural::AutoEncoder::new(signals[0].n_bins, discover.auto_encoder);
-    for _epoch in 0..discover.epochs {
+    for epoch in 0..discover.epochs {
         let mut total = 0.0;
         let mut total_err = 0.0;
+        let lr = neural::AutoEncoder::step_decay(epoch as f32, &discover);
         for signal in &signals {
             let mut order: Vec<usize> = (0..signal.len()).collect();
             let slice: &mut [usize] = &mut order;
             thread_rng().shuffle(slice);
-
             for i in slice {
                 let x = numerics::Mat {
                     flat: signal.vec(*i).to_vec(),
                     cols: signal.n_bins,
                 };
-                let error = nn.take_step(&x, discover.learning_rate);
+                let error = nn.take_step(&x, lr);
                 total_err += error;
                 total += 1.0;
             }
-        }
-        println!("{}", total_err / total);
+        }        
+        println!("{} lr: {}", total_err / total, lr);
     }
     templates.save_encoder(nn).unwrap();
     println!("==== Done! ==== ");
