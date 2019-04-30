@@ -26,7 +26,7 @@ pub struct ClusteringOperation {
 
 /**
  * Performs hierarchical clustering.
- * Holds temporary data during dendogram construction.
+ * Holds temporary data during dendrogram construction.
  */
 pub struct AgglomerativeClustering {
     /// Parent pointers similar to the union find data structure.
@@ -89,8 +89,8 @@ impl AgglomerativeClustering {
         for i in 0..n_instances {
             parents.push(i);
         }
-        println!("\tbuild initial dendogram");
-        let mut dendogram = AgglomerativeClustering {
+        println!("\tbuild initial dendrogram");
+        let mut dendrogram = AgglomerativeClustering {
             parents,
             distances: distances.clone(),
             n_instances,
@@ -101,12 +101,12 @@ impl AgglomerativeClustering {
         let threshold = percentile(&mut distances.clone(), perc);
         println!("Clustering with {}", threshold);
         let mut distance = 0.0;
-        while dendogram.n_clusters > 1 && distance < threshold {
-            let operation = dendogram.merge();
+        while dendrogram.n_clusters > 1 && distance < threshold {
+            let operation = dendrogram.merge();
             distance = operation.distance;
             cluster_result.push(operation);
         }
-        (cluster_result, dendogram.clusters())
+        (cluster_result, dendrogram.clusters())
     }
 
     /**

@@ -209,8 +209,8 @@ fn learn(folder: &str, templates: &reporting::Templates, discover: &discovery::D
         clustering_files.push(filename);
     }
     let _ = templates.write_html("output/result.html".to_string(), &clustering_files, &[]);
-    if let Ok(ceps_tex) = templates.dendograms(&operations, &clusters, file_names_ceps, "ceps") {
-        if let Ok(spec_tex) = templates.dendograms(&operations, &clusters, file_names, "specs") {
+    if let Ok(ceps_tex) = templates.dendrograms(&operations, &clusters, file_names_ceps, "ceps") {
+        if let Ok(spec_tex) = templates.dendrograms(&operations, &clusters, file_names, "specs") {
             let mut latex_parts =
                 vec!["\\chapter{Clusters With Cepstrum Visualisation}".to_string()];
             latex_parts.extend(ceps_tex);

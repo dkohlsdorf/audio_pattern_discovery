@@ -19,7 +19,7 @@ pub struct Templates {
     pub out_images: String,
     pub out_audio: String,
     pub document: String,
-    pub dendogram: String,
+    pub dendrogram: String,
     pub figure: String,
     pub result_html: String,
     pub out_encoder: String,
@@ -131,8 +131,8 @@ impl Templates {
         Ok(())
     }
 
-    /// Dendogram generation from clustering results
-    pub fn dendograms(
+    /// Dendrogram generation from clustering results
+    pub fn dendrograms(
         &self,
         operations: &[ClusteringOperation],
         clusters: &HashSet<usize>,
@@ -170,7 +170,7 @@ impl Templates {
 
         let mut latex_parts = vec![];
         for (i, cluster) in clusters.iter().enumerate() {
-            let caption = format!("Dendogram {}", i);
+            let caption = format!("Dendrogram {}", i);
             match results.get(cluster) {
                 Some(result) => {
                     if result.len() < 1000 {
@@ -222,7 +222,7 @@ impl Templates {
 
     /// Set a tikz image
     fn tikz(&self, tree: &str) -> Result<String> {
-        let mut file = File::open(&self.dendogram)?;
+        let mut file = File::open(&self.dendrogram)?;
         let mut template = String::new();
         file.read_to_string(&mut template)?;
         let tree_latex = template.replace("<tree>", tree);

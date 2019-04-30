@@ -5,7 +5,7 @@ Pattern Discovery In Audio Collections in Rust.
 The program will extract interesting regions from wav files and then cluster them using hierarchical clustering
 under dynamic time warping. Below we see some extracted and clustered dolphin whistles.
 
-![dendogram](https://raw.githubusercontent.com/dkohlsdorf/audio_pattern_discovery/master/project/dendogram.png)
+![dendrogram](https://raw.githubusercontent.com/dkohlsdorf/audio_pattern_discovery/master/project/dendrogram.png)
 
 ## Method
 
@@ -32,7 +32,6 @@ The parameters needed for the `interesting` detector are:
 
 Now we can also reduce the dimensionality further, by adding
 an auto encoder. The one used here only has one hidden layer.
-All layers have sigmoid activations [5].
 
 We then cluster all sequences using dynamic time warping window.
 The window can be restricted by a `Sakoe-Chiba` band [2]. Furthermore,
@@ -44,7 +43,7 @@ We cluster using agglomerative clustering with average linkage
 also known as UPGMA[4]. 
 
 After this we generate an audio file for each cluster which contains all instances
-of the cluster. A latex document with the dendrograms of the clustering and
+of the cluster. A latex document with the dendrograms of the clusterin and
 a classification experiment showing that the models for each cluster model
 the data. The output of the tool is summarised in a result html page.
 
@@ -69,7 +68,7 @@ folder.
 + `clustering.rs` Hierarchical Clustering                  
 + `numerics.rs` All numerics methods
 + `spectrogram.rs` Implements spectrogram and slicing
-+ `neural.rs` Implements a one hidden layer autoencoder
++ `neural.rs` Implements a one layer autoencoder
 
 ## Output Folder
 The results will be generated in the output folder:
@@ -89,5 +88,3 @@ The results will be generated in the output folder:
 + [2 Sakoe Chiba](https://ieeexplore.ieee.org/document/1163055)
 + [3 DTW and Weights](https://www.amazon.com/Speech-Synthesis-Recognition-Wendy-Holmes/dp/0748408576)
 + [4 UPGMA](https://en.wikipedia.org/wiki/UPGMA)
-+ [5 Auto Encoder](http://ufldl.stanford.edu/wiki/index.php/Autoencoders_and_Sparsity)
-
