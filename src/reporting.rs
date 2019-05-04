@@ -173,7 +173,7 @@ impl Templates {
             let caption = format!("Dendrogram {}", i);
             match results.get(cluster) {
                 Some(result) => {
-                    if result.len() < 1000 {
+                    if result.len() < 500 {
                         let graph = self.tikz(result)?;
                         let mut fp_graph = File::create(format!(
                             "{}/cluster_{}_{}.tikz",
